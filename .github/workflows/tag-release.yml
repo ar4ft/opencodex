@@ -150,5 +150,5 @@ jobs:
             exit 1
           fi
           sha256sum "${assets[@]}" | sort -k2 > checksums.txt
-          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" checksums.txt --clobber
-          gh release edit "$GITHUB_REF_NAME" --draft=false
+          gh release upload "$GITHUB_REF_NAME" "${assets[@]}" checksums.txt --clobber --repo "$GITHUB_REPOSITORY"
+          gh release edit "$GITHUB_REF_NAME" --draft=false --repo "$GITHUB_REPOSITORY"
