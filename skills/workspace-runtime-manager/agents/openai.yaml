@@ -1,0 +1,3 @@
+interface:
+  display_name: "Workspace Runtime Manager"
+  short_description: "Install macOS runtimes inside each project"
