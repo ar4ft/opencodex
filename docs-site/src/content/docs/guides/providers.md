@@ -505,7 +505,10 @@ Copilot fronts a mixed-wire catalog: its GPT-5 family (`gpt-5.3-codex`, `gpt-5.4
 Responses API by built-in default while every other Copilot model stays on chat
 completions. The precedence is: hard wire pin → your explicit
 [`modelAdapters`](/reference/configuration/providers/) entry → registry default →
-provider-wide adapter. To opt a model without a built-in default (for example
+provider-wide adapter. After login, the Models list is fetched from Copilot's
+account-scoped live catalog; the registry list is only a cold-start fallback, so
+availability follows the signed-in account and may differ from another Copilot
+client or plan. To opt a model without a built-in default (for example
 `gpt-5.4-nano`) into Responses, set `"modelAdapters": { "gpt-5.4-nano": "openai-responses" }`.
 
 Cursor is tracked separately as an experimental adapter. `adapter: "cursor"` appears in `ocx init`
