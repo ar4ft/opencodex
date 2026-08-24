@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   buildGithubDeviceVerifyUrl,
+  GITHUB_COPILOT_API_VERSION,
   githubCopilotHttpError,
   isAllowedGithubDeviceVerifyUrl,
   loginGithubCopilot,
@@ -8,6 +9,7 @@ import {
   resolveCopilotApiBaseUrl,
   validateCopilotApiBaseUrl,
 } from "../src/oauth/github-copilot";
+import { buildModelsRequest } from "../src/oauth";
 import type { OAuthController } from "../src/oauth/types";
 
 const realFetch = globalThis.fetch;
@@ -70,6 +72,20 @@ describe("github-copilot URL allowlists", () => {
     const err = githubCopilotHttpError("token exchange", 401);
     expect(err.message).toBe("GitHub Copilot token exchange failed (401)");
     expectNoSecretLeak(err);
+  });
+
+  test("model discovery requests the current account-scoped Copilot catalog", () => {
+    const request = buildModelsRequest({
+      adapter: "openai-chat",
+      baseUrl: "https://api.githubcopilot.com",
+      authMode: "oauth",
+    }, "copilot-token", "github-copilot");
+
+    expect(request.url).toBe("https://api.githubcopilot.com/models");
+    expect(request.headers).toMatchObject({
+      Authorization: "Bearer copilot-token",
+      "X-GitHub-Api-Version": GITHUB_COPILOT_API_VERSION,
+    });
   });
 });
 

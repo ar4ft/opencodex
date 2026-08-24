@@ -50,6 +50,10 @@ devlog/**/security-advisory-draft*
 # Local development worktrees
 .worktrees/
 
+# Workspace-local language runtimes and download caches
+.runtimes/
+.runtime-cache/
+
 # Test-generated artifacts
 # Trailing slash matched directories only, but the same tests also leave plain
 # files behind when a run dies mid-write -- and on Windows those can stay locked

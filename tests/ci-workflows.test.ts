@@ -619,6 +619,20 @@ describe("GitHub Actions hardening", () => {
     expect(workflow).not.toMatch(/uses:\s+\S+@(?:v\d+|main|master)\b/);
   });
 
+  test("tag release workflow accepts version tags from GitHub Releases", async () => {
+    const workflowText = await readText(".github/workflows/tag-release.yml");
+    const workflow = Bun.YAML.parse(workflowText) as {
+      on?: {
+        push?: { tags?: string[] };
+        release?: { types?: string[] };
+      };
+    };
+
+    expect(workflow.on?.push?.tags).toEqual(["v*", "*.*.*"]);
+    expect(workflow.on?.release?.types).toEqual(["published"]);
+    expect(workflowText).toContain('--repo "$GITHUB_REPOSITORY"');
+  });
+
   test("release workflow gates the exact SHA, channel, and service surface without injection", async () => {
     const workflow = await readText(".github/workflows/release.yml");
     const release = Bun.YAML.parse(workflow) as {

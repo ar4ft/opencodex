@@ -9,6 +9,8 @@ import type { OAuthController, OAuthCredentials } from "./types";
 /** VS Code's public GitHub OAuth app — required for copilot_internal/v2/token to succeed. */
 export const GITHUB_COPILOT_OAUTH_CLIENT_ID = "Iv1.b507a08c87ecfe98";
 export const GITHUB_COPILOT_DEFAULT_API_BASE = "https://api.githubcopilot.com";
+/** Dated Copilot API contract required for the current account-scoped model catalog. */
+export const GITHUB_COPILOT_API_VERSION = "2026-06-01";
 export const GITHUB_DEVICE_VERIFY_ORIGIN = "https://github.com";
 export const GITHUB_DEVICE_VERIFY_PATH = "/login/device";
 
@@ -31,6 +33,7 @@ export const GITHUB_COPILOT_EDITOR_HEADERS: Readonly<Record<string, string>> = {
   "Editor-Version": "opencodex/0.1.0",
   "Editor-Plugin-Version": "opencodex/0.1.0",
   "Copilot-Integration-Id": "vscode-chat",
+  "X-GitHub-Api-Version": GITHUB_COPILOT_API_VERSION,
   "User-Agent": "opencodex",
   Accept: "application/json",
 };
