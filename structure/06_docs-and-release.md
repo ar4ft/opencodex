@@ -280,3 +280,9 @@ asset's SHA-256, smoke-checks startup, and atomically replaces the executable. I
 of the npm updater. PATH setup is idempotent, and the previous binary is retained. Release tags may
 be bare or `v`-prefixed and are independent of the embedded package version; CLI version metadata
 is bundled so it does not require an adjacent package.json at runtime.
+
+`update-pre` explicitly selects the newest API-classified GitHub prerelease, skipping stable and
+draft releases. Its wrappers update the owned prefix; `src/update/github-prerelease.ts` also
+bootstraps standalone installation when invoked from npm, source, or a raw compiled binary.
+The prerelease channel fails closed when API classification is unavailable; unsigned release
+binaries still require the exact asset's SHA-256 and a startup check before installation.

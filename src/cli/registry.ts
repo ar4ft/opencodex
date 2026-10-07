@@ -135,6 +135,11 @@ export const CLI_COMMANDS: CliCommandEntry[] = [
     summary: "Update opencodex. Preview installs stay on the preview tag unless overridden.",
   },
   {
+    name: "update-pre",
+    usage: "ocx update-pre [--no-modify-path]",
+    summary: "Install the newest GitHub prerelease binary on Linux/macOS, verified by SHA-256.",
+  },
+  {
     name: "provider",
     usage: "ocx provider <list|add|edit|test|remove|show|set-default|selected|quota|presets|account-mode>",
     summary: "Non-interactive provider management.",

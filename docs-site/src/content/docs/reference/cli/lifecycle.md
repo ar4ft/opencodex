@@ -416,6 +416,16 @@ if it is not running.
 
 ## Updating
 
+### `ocx update-pre [--no-modify-path]`
+
+Install the newest published GitHub prerelease binary from this fork on Linux/macOS, skipping
+stable releases and drafts. Downloads are unsigned; the installer verifies SHA-256 and checks
+startup before replacing the binary. Existing standalone aliases update their owned prefix.
+From npm/source, this command installs standalone aliases under `OXC_INSTALL_DIR` or `~/.oxc`;
+activate them with `. "$HOME/.oxc/env"`. Run `oxc restart` after updating a running proxy.
+
+You can also pass `--prerelease` to the [standalone installer](/getting-started/installation/#standalone-install-this-fork).
+
 ### `ocx update [--tag latest|preview]`
 
 Standalone installations made by this fork's `install.sh` use `oxc update` (also available as

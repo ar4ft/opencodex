@@ -47,6 +47,11 @@ their own files.
 
 ## Lifecycle
 
+`ocx update-pre` dispatches to `src/update/github-prerelease.ts` on Linux/macOS. It downloads the
+fork's HTTPS installer and selects its prerelease channel. Help and invalid arguments perform no
+download. Managed standalone binaries keep their prefix; npm/source invocations install under
+`OXC_INSTALL_DIR` or `~/.oxc`. The wrapper intercepts the same command for installed aliases.
+
 `ocx start` refuses a duplicate PID, starts the proxy, writes `~/.opencodex/ocx.pid` and
 `runtime-port.json` through `src/config/process-state.ts`, syncs Codex config/catalog, then serves
 until shutdown. Normal shutdown restores native Codex. Service mode sets

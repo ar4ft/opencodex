@@ -357,6 +357,14 @@ const commandRunners: Record<string, CommandRunner> = {
     await runUpdate();
     return 0;
   },
+  "update-pre": async deps => {
+    if (hasHelpFlag(deps.args.slice(1))) {
+      printSubcommandUsage("update-pre");
+      return 0;
+    }
+    const { runGithubPrereleaseUpdate } = await import("../update/github-prerelease");
+    return runGithubPrereleaseUpdate(deps.args.slice(1));
+  },
   "__refresh-version": async deps => {
     // Hidden, detached helper spawned by the update prompt to refresh the
     // cached latest version without blocking the foreground start. Not in help.
@@ -630,4 +638,3 @@ async function handleDesktopAppRestart(log: Pick<Console, "log" | "error">): Pro
       }
   }
 }
-

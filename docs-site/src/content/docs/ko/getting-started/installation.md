@@ -16,10 +16,11 @@ curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scr
 . "$HOME/.oxc/env"
 oxc --version
 oxc update
+oxc update-pre  # GitHub prerelease
 oxc restart
 ```
 
-[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+[Options: --version, --stable, --prerelease, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
 
 ## npm 사전 요구 사항
 
