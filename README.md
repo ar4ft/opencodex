@@ -12,9 +12,23 @@ ocx start
 ocx sync        # refresh provider models and enabled Grok/Claude integrations
 ```
 
-Copilot discovery publishes only chat models enabled in your account's picker. Claude's dated
-IDs are mapped to the same version in that roster (for example, `claude-opus-4-8-20260330`
-to `claude-opus-4.8`); unavailable versions are never substituted.
+Copilot discovery publishes only chat models enabled in your account's picker. `ocx sync`
+refreshes Claude Desktop's static picker and Claude Code's gateway cache. Launch Code with
+`ocx claude` and select models using `/model`. Open the dashboard at http://localhost:10100/;
+on macOS, `open http://localhost:10100/` opens it directly.
+
+Claude Desktop date slots encode model routes. For example, `claude-opus-4-8-20260330`
+identifies `github-copilot/claude-fable-5`, not Opus 4.8. The gateway recovers this mapping on
+cold requests and saves stable assignments during sync. Unavailable slots are rejected locally.
+Claude's public model catalog describes native model capabilities; it does not grant Copilot access.
+If an old provider selection hides new models, `ocx models selected github-copilot --clear`
+returns to showing all subscription-enabled models; then run `ocx sync`.
+
+Updating a binary does not replace an already-running proxy. Preview.2 and earlier shutdown
+hooks may restore native Codex files: the new CLI refuses their stop/restart/uninstall paths.
+To migrate without running those hooks, verify the old proxy PID with `ocx status`, terminate
+only that process with SIGKILL, then run `ocx start` and `ocx sync`. This interrupts active
+proxy requests. For later versions, `ocx stop` followed by `ocx start` uses the updated binary.
 
 The remaining project overview describes upstream features. Native Codex client integration
 commands are disabled in this fork.

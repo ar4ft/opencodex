@@ -1988,37 +1988,3 @@ test(`registered Desktop IDs and exact overrides reach intended routes (fastRows
   }
 }, { timeout: SERVER_BUDGET_MS });
 }
-
-test("Claude dated Opus ID reaches Copilot using its advertised dotted version", async () => {
-  const upstream = mockChatUpstreamCapturing();
-  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(input instanceof Request ? input.url : String(input));
-    if (url.hostname === "api.githubcopilot.com") {
-      if (url.pathname === "/models") return Promise.resolve(Response.json({ data: [{
-        id: "claude-opus-4.8", model_picker_enabled: true, capabilities: { type: "chat" }, policy: { state: "enabled" },
-      }] }));
-      return originalFetch(new URL(url.pathname, upstream.server.url), init);
-    }
-    return originalFetch(input, init);
-  }) as typeof globalThis.fetch;
-  saveConfig({
-    port: 0, defaultProvider: "github-copilot",
-    providers: { "github-copilot": { adapter: "openai-chat", baseUrl: "https://api.githubcopilot.com", authMode: "key", apiKey: "k",
-      models: ["claude-opus-4.8"] } },
-  });
-  const server = startServer(0);
-  try {
-    const response = await fetch(new URL("/v1/messages", server.url), {
-      method: "POST", headers: { "content-type": "application/json", "x-api-key": "placeholder" },
-      body: JSON.stringify({ model: "claude-opus-4-8-20260330", max_tokens: 128, stream: false, messages: [{ role: "user", content: "hi" }] }),
-    });
-    expect(response.status, await response.clone().text()).toBe(200);
-    await response.text();
-    expect(upstream.captured.at(-1)?.model).toBe("claude-opus-4.8");
-    const counted = await fetch(new URL("/v1/messages/count_tokens", server.url), {
-      method: "POST", headers: { "content-type": "application/json", "x-api-key": "placeholder" },
-      body: JSON.stringify({ model: "claude-opus-4-8-20260330", messages: [{ role: "user", content: "hi" }] }),
-    });
-    expect(counted.status, await counted.clone().text()).toBe(200);
-  } finally { server.stop(true); upstream.server.stop(true); }
-}, 20000);

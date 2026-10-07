@@ -17,6 +17,9 @@ export async function resolveCopilotClaudeModel(
   model: string,
   discover = fetchAllModels,
 ): Promise<string> {
+  // Bare 2026 Opus-shaped IDs are Desktop date slots (including Fable/GPT),
+  // never evidence of an Opus 4.8 selection. Explicit provider IDs can normalize.
+  if (/^claude-opus-4-8-2026\d{4}$/.test(model)) return model;
   let route: ReturnType<typeof routeModel>;
   try { route = routeModel(config, model); } catch { return model; }
   if (route.providerName !== "github-copilot") return model;

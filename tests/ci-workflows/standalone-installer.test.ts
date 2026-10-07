@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const script = join(import.meta.dir, "../scripts/install.sh");
+const script = join(import.meta.dir, "../../scripts/install.sh");
 
 function fixture(run: (f: ReturnType<typeof setup>) => void) {
   const f = setup();
@@ -134,7 +134,7 @@ describe.skipIf(process.platform === "win32")("standalone POSIX installer", () =
   }));
 
   test("the CLI update-pre bootstraps standalone installation without npm or inherited version pins", () => fixture(f => {
-    const cli = join(import.meta.dir, "../src/cli/index.ts");
+    const cli = join(import.meta.dir, "../../src/cli/index.ts");
     mkdirSync(join(f.home, "opencodex"));
     mkdirSync(join(f.home, "codex"));
     const env = { ...f.env, OXC_VERSION: "0.0.9", OPENCODEX_HOME: join(f.home, "opencodex"), CODEX_HOME: join(f.home, "codex") };

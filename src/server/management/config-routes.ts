@@ -800,7 +800,12 @@ export async function handleConfigRoutes(ctx: ManagementContext): Promise<Respon
     const { readRuntimePort } = await import("../../config/process-state");
     const { loadConfig } = await import("../../config");
     const runtime = readRuntimePort(process.pid);
-    return jsonResponse(await syncProxyClients(runtime?.port ?? config.port, loadConfig()));
+    const current = loadConfig();
+    const result = await syncProxyClients(runtime?.port ?? (Number(url.port) || config.port), current);
+    if (current.claudeCode?.desktopProfile) {
+      config.claudeCode = { ...(config.claudeCode ?? {}), desktopProfile: current.claudeCode.desktopProfile };
+    }
+    return jsonResponse(result);
   }
 
   if (url.pathname === "/api/update/check" && req.method === "GET") {

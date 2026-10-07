@@ -422,9 +422,8 @@ describe("routing visibility (#2411)", () => {
   // custom-local and unknown stay silent on purpose — startupHealthSummary
   // already renders both as AT RISK with a remedy, so a second warning would
   // train operators to ignore this one.
-  test("unusedProxyWarningLines fires only for a live proxy on native routing", () => {
-    expect(unusedProxyWarningLines({ proxyUp: true, routingKind: "native" }).length).toBeGreaterThan(0);
-    expect(unusedProxyWarningLines({ proxyUp: true, routingKind: "native" }).join(" ")).toContain("unused");
+  test("native Codex routing does not imply the Grok/Claude proxy is unused", () => {
+    expect(unusedProxyWarningLines({ proxyUp: true, routingKind: "native" })).toEqual([]);
     expect(unusedProxyWarningLines({ proxyUp: false, routingKind: "native" })).toEqual([]);
     expect(unusedProxyWarningLines({ proxyUp: true, routingKind: "opencodex-local" })).toEqual([]);
     expect(unusedProxyWarningLines({ proxyUp: true, routingKind: "custom-remote" })).toEqual([]);

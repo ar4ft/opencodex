@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { NATIVE_CODEX_CLIENT_SUPPORTED, NATIVE_CLIENT_DISABLED_MESSAGE } from "../codex/native-client-policy";
 import {
   existsSync,
   lstatSync,
@@ -541,6 +542,7 @@ export async function connectClient(
   options: ConnectOptions,
   deps: ClientConnectDeps = {},
 ): Promise<OcxClientConnectionConfig> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) throw new Error(NATIVE_CLIENT_DISABLED_MESSAGE);
   deps.signal?.throwIfAborted();
   const rawFetch = deps.fetchImpl ?? fetch;
   const fetchImpl: typeof fetch = deps.signal ? Object.assign(async (...[input, init = {}]: Parameters<typeof fetch>) => {
@@ -781,6 +783,7 @@ export async function syncConnectedClient(
   _options: { restartCodex?: boolean } = {},
   deps: ClientConnectDeps = {},
 ): Promise<{ catalogWritten: boolean; cacheSynced: boolean; injected: boolean; stale: boolean }> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) throw new Error(NATIVE_CLIENT_DISABLED_MESSAGE);
   if (siblingOfLivePort() !== null) throw new Error(siblingSkipMessage());
   const initial = withClientLifecycleSync(() => withConfigMutationLockSync(() => {
     assertNoClientDisconnectPending();
@@ -923,6 +926,7 @@ export async function disconnectClient(
   desktopRestoration?: "owned_projection" | "standard_fallback" | "selection_preserved";
   restartRequired: boolean;
 }> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) throw new Error(NATIVE_CLIENT_DISABLED_MESSAGE);
   if (siblingOfLivePort() !== null) throw new Error(siblingSkipMessage());
   const keepCatalog = options.keepCatalog === true;
   const prepared = withClientLifecycleSync(held => withConfigMutationLockSync(() => {

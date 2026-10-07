@@ -921,6 +921,11 @@ const RESTART_REOBSERVE_RESERVE_MS = 10_000;
 async function handleProxyRestart(
   startWhenStopped: (recoveringLiveRestart: boolean) => Promise<ProxyRestartStartOutcome>,
 ): Promise<boolean> {
+  const live = await findLiveProxy();
+  if (live) {
+    try { await (await import("../clients/live-policy")).assertNativeSafeProxyLifecycle(live); }
+    catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; return false; }
+  }
   const deadlineAt = Date.now() + PROXY_RESTART_OBSERVE_MS;
   const result = await runProxyRestart({
     findLive: () => discoverStableProxyForRestart({
@@ -975,6 +980,16 @@ async function handleRestartStartWhenStopped(recoveringLiveRestart = false): Pro
 
 
 async function handleStop(approval?: StopApproval) {
+  const live = await findLiveProxy();
+  if (live) {
+    try { await (await import("../clients/live-policy")).assertNativeSafeProxyLifecycle(live); }
+    catch (error) {
+      console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1;
+      return { ok: false, summary: summarizeStopRun({ service: "absent", proxy: "ownership-refused",
+        sharedTeardown: "skipped", inheritedTeardownBlocks: false, receiptClearFailed: false },
+      { failed: true, historyOnly: false, historyDeferred: false, exitCode: 1 }) };
+    }
+  }
   const lease = acquireOwnershipMutationLease(serviceStatePaths());
   try {
     if (!approval) return await handleStopUnlocked();
@@ -1503,6 +1518,11 @@ async function handleStopUnlocked(snapshot?: GuardedStopSnapshot) {
 }
 
 async function handleUninstall() {
+  const live = await findLiveProxy();
+  if (live) {
+    try { await (await import("../clients/live-policy")).assertNativeSafeProxyLifecycle(live); }
+    catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; return; }
+  }
   /** Definitive "nothing is answering" on the endpoint this home would serve. */
   const proxyEndpointProvenDown = async (): Promise<boolean> => {
     try {
@@ -1736,7 +1756,7 @@ async function handleStatus() {
     console.log(`   ${line}`);
   }
   if (!(status.json.proxy.pid || status.json.proxy.health.ok)) {
-    console.log("   ↳ Not running — Codex/Claude requests will fail with connection errors.");
+    console.log("   ↳ Not running — Clients using the proxy will fail with connection errors.");
     // The service summary a few lines below already tells a registered-but-not-serving
     // user to repair. Printing "install the persistent service" unconditionally
     // contradicted it in the same report, and install re-registers: UAC on Windows and a

@@ -2,6 +2,15 @@
   "version": 1,
   "root": "tests",
   "explicit": {
+    "claude-copilot-model.test.ts": "claude-integration",
+    "claude-desktop-request-model.test.ts": "claude-integration",
+    "fork-native-client-isolation.test.ts": "codex-integration",
+    "fork-live-policy.test.ts": "cli",
+    "github-copilot-model-discovery.test.ts": "codex-integration",
+    "standalone-installer.test.ts": "ci-workflows",
+    "tag-release-prerelease.test.ts": "ci-workflows",
+    "claude-fork-copilot-wire.test.ts": "claude-integration",
+
     "messages-native-scope.test.ts": "claude-integration",
     "cli-log-view-filter.test.ts": "cli", "cli-usage-model-search.test.ts": "cli", "cli-companion-usage.test.ts": "cli", "cli-account-key-quota.test.ts": "cli",
     "cli-observe-snapshot.test.ts": "cli", "cli-access-data-plane.test.ts": "cli", "cli-access-key-guard.test.ts": "cli", "cli-access-rename.test.ts": "cli",

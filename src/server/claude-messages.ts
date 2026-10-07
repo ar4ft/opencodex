@@ -145,16 +145,6 @@ function decodeClaudeFastSelector(raw: string, cc?: OcxConfig["claudeCode"]): st
 }
 
 /** Restore reversible native Claude picker aliases before Anthropic passthrough checks. */
-async function copilotModelMapForRequest(config: OcxConfig, model: string, cc: OcxConfig["claudeCode"]) {
-  try { resolveInboundModel(model, cc); return cc; } catch (error) {
-    if (!(error instanceof DesktopModelMappingUnavailableError)) return cc;
-    const explicit = cc?.modelMap?.[model.replace(/-\d{8}$/, "")];
-    const { resolveCopilotClaudeModel } = await import("../claude/copilot-model");
-    const mapped = typeof explicit === "string" && explicit.length > 0
-      ? explicit : await resolveCopilotClaudeModel(config, model);
-    return mapped === model ? cc : { ...cc, modelMap: { ...cc?.modelMap, [model]: mapped } };
-  }
-}
 
 function decodeNativeClaudePickerAlias(raw: string, cc?: OcxConfig["claudeCode"]): string {
   const decoded = resolveInboundModel(raw, cc);
@@ -907,7 +897,8 @@ async function handleClaudeMessagesWithBudget(
       }
     }
     if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
-      cc = await copilotModelMapForRequest(config, anthropicBody.model, cc);
+      const { refreshDesktopRequestModel } = await import("../claude/desktop-request-model");
+      await refreshDesktopRequestModel({ ...config, claudeCode: cc }, anthropicBody.model);
       anthropicBody.model = decodeNativeClaudePickerAlias(anthropicBody.model, cc);
     }
     if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
@@ -1688,7 +1679,8 @@ export async function handleClaudeCountTokens(
       model = stripOneMillionMarker(countRoute);
       raw.model = model;
     }
-    cc = await copilotModelMapForRequest(config, model, cc);
+    const { refreshDesktopRequestModel } = await import("../claude/desktop-request-model");
+    await refreshDesktopRequestModel({ ...config, claudeCode: cc }, model);
     model = decodeNativeClaudePickerAlias(model, cc);
     raw.model = model;
     // Fast-only: count_tokens never parsed an effort row, so it must not start. It returns a

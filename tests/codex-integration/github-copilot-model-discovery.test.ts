@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { fetchProviderModels, mergeConfiguredModelsIntoLiveCatalog } from "../src/codex/catalog/provider-fetch";
-import { clearModelCache, getProviderDiscoveryStatus } from "../src/codex/model-cache";
-import { providerConfigSeed } from "../src/providers/derive";
-import { getProviderRegistryEntry } from "../src/providers/registry";
-import { GITHUB_COPILOT_API_VERSION } from "../src/oauth/github-copilot";
+import { fetchProviderModels, mergeConfiguredModelsIntoLiveCatalog } from "../../src/codex/catalog/provider-fetch";
+import { clearModelCache, getProviderDiscoveryStatus } from "../../src/codex/model-cache";
+import { providerConfigSeed } from "../../src/providers/derive";
+import { getProviderRegistryEntry } from "../../src/providers/registry";
+import { GITHUB_COPILOT_API_VERSION } from "../../src/oauth/github-copilot";
 
 const name = "github-copilot";
 const seed = providerConfigSeed(getProviderRegistryEntry(name)!);

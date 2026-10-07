@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, readFileSync, statSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { codexIntegrationEnabled, setCodexIntegrationEnabled } from "../src/codex/desired-state";
-import { syncModelsToCodex } from "../src/codex/sync";
-import { maybeAutoRestoreCodexShim } from "../src/cli/codex-shim-autorestore";
+import { codexIntegrationEnabled, setCodexIntegrationEnabled } from "../../src/codex/desired-state";
+import { syncModelsToCodex } from "../../src/codex/sync";
+import { maybeAutoRestoreCodexShim } from "../../src/cli/codex-shim-autorestore";
 
 test("native Codex remains excluded with absent, OFF, and old ON settings", async () => {
   for (const clientIntegrations of [undefined, { codex: false }, { codex: true }]) {
@@ -19,8 +19,8 @@ test("native Codex remains excluded with absent, OFF, and old ON settings", asyn
     expect(result.catalogWritten || result.cacheSynced).toBe(false);
   }
   expect(setCodexIntegrationEnabled(true).ok).toBe(false);
-  const { tryAcquireNativeMainProfileClaim, tryClaimNativeMainProfileForTurn } = await import("../src/codex/native-main-admission");
-  const { getMainAccountToken } = await import("../src/codex/main-account");
+  const { tryAcquireNativeMainProfileClaim, tryClaimNativeMainProfileForTurn } = await import("../../src/codex/native-main-admission");
+  const { getMainAccountToken } = await import("../../src/codex/main-account");
   expect(tryAcquireNativeMainProfileClaim()).toBeNull();
   expect(tryClaimNativeMainProfileForTurn(undefined, {
     isTrafficBlocked: () => { throw Error("Native profile probed"); },
@@ -58,7 +58,7 @@ test("real sync, legacy restart flags, start, and shutdown leave native homes an
   }));
   const env = { ...process.env, HOME: home, CODEX_HOME: native, OPENCODEX_HOME: own,
     PATH: `${join(home, "bin")}:${process.env.PATH}`, CI: "1", OPENCODEX_API_AUTH_TOKEN: "", OCX_SERVICE: "0" };
-  const cli = resolve(import.meta.dir, "../src/cli/index.ts");
+  const cli = resolve(import.meta.dir, "../../src/cli/index.ts");
   const cliArgv = process.env.OXC_TEST_BINARY ? [process.env.OXC_TEST_BINARY] : [process.execPath, cli];
   const before = [snapshot(native), snapshot(app)];
   let child: ReturnType<typeof Bun.spawn> | undefined;
@@ -95,17 +95,17 @@ test("real sync, legacy restart flags, start, and shutdown leave native homes an
 
 
 test("sync refuses a legacy running proxy before it can invoke native catalog sync", async () => {
-  const { dispatchCommand } = await import("../src/cli/dispatch");
+  const { dispatchCommand } = await import("../../src/cli/dispatch");
   const calls: string[] = [];
   const legacy = Bun.serve({ port: 0, fetch(req) {
     calls.push(`${req.method} ${new URL(req.url).pathname}`);
     return Response.json({ error: "not found" }, { status: 404 });
   } });
   try {
-    const result = await dispatchCommand({ command: "sync" } as import("../src/cli/root").CliHead, {
+    const result = await dispatchCommand({ command: "sync" } as import("../../src/cli/root").CliHead, {
       args: ["sync"], findLiveProxy: async () => ({ port: legacy.port, hostname: "127.0.0.1", pid: process.pid }),
       probeHostname: () => "127.0.0.1",
-    } as import("../src/cli/dispatch").CliDispatchDeps);
+    } as import("../../src/cli/dispatch").CliDispatchDeps);
     expect(result).toBe(1);
     expect(calls).toEqual(["GET /api/fork-client-policy"]);
   } finally { legacy.stop(true); }

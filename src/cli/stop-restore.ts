@@ -1,6 +1,7 @@
 import { restoreNativeCodexAsync } from "../codex/inject";
 import type { RetainedCodexProviderTable } from "../codex/inject/restore";
 import { stripGrokConfig } from "../grok/inject";
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "../codex/native-client-policy";
 
 /**
  * Restore shared client state after a stop.
@@ -25,7 +26,7 @@ export async function restoreSharedClientStateAfterStop(
   let historyOnly = false;
   let historyDeferred = false;
   let other = false;
-  try {
+  if (NATIVE_CODEX_CLIENT_SUPPORTED) try {
     const result = await restoreNativeCodexAsync();
     if (result.success) {
       console.log(`↩️  ${result.message}`);

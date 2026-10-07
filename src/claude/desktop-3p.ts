@@ -298,6 +298,16 @@ function collectDesktop3pModels(
     aliasesByRoute.set(route, alias);
   }
 
+  // Recover date slots installed by older fork releases without a saved profile.
+  // Keep upstream non-date wire IDs and real Anthropic collision guards intact.
+  const recovered = reconcileDesktopProfile(undefined, candidates.map(({ provider, id }) => ({
+    route: `${provider}/${id}`, label: id,
+  })));
+  for (const [route, assignment] of Object.entries(recovered.assignments)) {
+    if (!route.startsWith("anthropic/claude-") && !realAnthropicIds.has(assignment.alias)) {
+      registry.set(assignment.alias, route);
+    }
+  }
   if (models[0]) models[0].isFamilyDefault = true;
   desktop3pAliasesByRoute = aliasesByRoute;
   return { models, registry, realAnthropicIds };
