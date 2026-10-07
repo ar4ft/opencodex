@@ -6530,18 +6530,24 @@ describe("Codex catalog routed normalization", () => {
     globalThis.fetch = (async () => new Response(JSON.stringify({
       data: [{
         id: "copilot-wide-model",
+        model_picker_enabled: true,
         capabilities: {
+          type: "chat",
           limits: { max_context_window_tokens: 1_000_000 },
         },
       }, {
         id: "copilot-existing-metadata",
+        model_picker_enabled: true,
         metadata: { limits: { max_context_length: 256_000 } },
         capabilities: {
+          type: "chat",
           limits: { max_context_window_tokens: 1_000_000 },
         },
       }, {
         id: "copilot-invalid-window",
+        model_picker_enabled: true,
         capabilities: {
+          type: "chat",
           limits: { max_context_window_tokens: -1 },
         },
       }],

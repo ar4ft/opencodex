@@ -45,7 +45,7 @@ const DISCOVERY_ONLY = ["gpt-6-astra", "grok-4.5", "grok-4.6", "mai-code-1.1-fla
 
 describe("Copilot discovery-only models do not widen the cold-start seed", () => {
   for (const authMode of ["key", "oauth"] as const) {
-    test(`${authMode} discovery exposes new models but failure retains the configured seed`, async () => {
+    test(`${authMode} discovery exposes enabled models, preserves verified cache, and fails cold without seeds`, async () => {
       const auth = spyOn(oauth, "resolveModelsAuthToken").mockResolvedValue("test-token");
       // Refreshing OAuth discovery takes the token and its origin from one snapshot.
       const snapshot = spyOn(oauth, "getValidAccessTokenSnapshot").mockResolvedValue({
@@ -55,13 +55,17 @@ describe("Copilot discovery-only models do not widen the cold-start seed", () =>
       const provider = { ...providerConfigSeed(getProviderRegistryEntry("github-copilot")!), authMode, apiKey: "test-token" };
       try {
         clearModelCache("github-copilot");
-        globalThis.fetch = (async () => Response.json({ data: DISCOVERY_ONLY.map(id => ({ id })) })) as typeof fetch;
+        globalThis.fetch = (async () => Response.json({ data: DISCOVERY_ONLY.map(id => ({
+          id, model_picker_enabled: true, capabilities: { type: "chat" }, policy: { state: "enabled" },
+        })) })) as typeof fetch;
         const live = await fetchProviderModels("github-copilot", { ...provider, fetch: globalThis.fetch } as OcxProviderConfig, 0);
         expect(live.map(model => model.id).sort()).toEqual([...DISCOVERY_ONLY].sort());
-        clearModelCache("github-copilot");
         globalThis.fetch = (async () => new Response("unavailable", { status: 503 })) as typeof fetch;
+        const stale = await fetchProviderModels("github-copilot", { ...provider, fetch: globalThis.fetch } as OcxProviderConfig, 0);
+        expect(stale.map(model => model.id).sort()).toEqual([...DISCOVERY_ONLY].sort());
+        clearModelCache("github-copilot");
         const fallback = await fetchProviderModels("github-copilot", { ...provider, fetch: globalThis.fetch } as OcxProviderConfig, 0);
-        expect(fallback.map(model => model.id).sort()).toEqual([...provider.models!].sort());
+        expect(fallback).toEqual([]);
         for (const model of DISCOVERY_ONLY) expect(fallback.some(row => row.id === model)).toBe(false);
       } finally {
         globalThis.fetch = original;
