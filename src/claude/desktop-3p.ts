@@ -301,11 +301,12 @@ function collectDesktop3pModels(
 
   // Recover date slots installed by older fork releases without a saved profile.
   // Keep upstream non-date wire IDs and real Anthropic collision guards intact.
-  const recovered = reconcileDesktopProfile(undefined, candidates.map(({ provider, id }) => ({
+  const legacyCopilotModels = candidates.filter(candidate => candidate.provider === "github-copilot");
+  const recovered = reconcileDesktopProfile(undefined, legacyCopilotModels.map(({ provider, id }) => ({
     route: `${provider}/${id}`, label: id,
   })));
   for (const [route, assignment] of Object.entries(recovered.assignments)) {
-    if (!route.startsWith("anthropic/claude-") && !realAnthropicIds.has(assignment.alias)) {
+    if (route.startsWith("github-copilot/") && !realAnthropicIds.has(assignment.alias)) {
       registry.set(assignment.alias, route);
       const wire = desktopProfileWireAlias(assignment.alias);
       if (!realAnthropicIds.has(wire)) registry.set(wire, route);

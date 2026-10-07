@@ -22,8 +22,9 @@ before gateway writes. Native routing-healer timers are not started. The legacy 
 available. Bare date slots never imply an Opus version. Successful sync persists the refreshed
 Desktop profile and refreshes the Claude Code gateway cache independently of agent injection.
 `src/claude/desktop-3p.ts` retains upstream's expanded date-slot range, non-date wire aliases
-and real Anthropic collision protection. Exact and dateless operator modelMap entries retain
-precedence over unresolved slots; registered profile aliases retain their existing precedence.
+and real Anthropic collision protection. Exact operator modelMap entries and explicit Copilot dateless migration maps retain
+precedence. Generic version fallbacks cannot claim unknown managed slots. Registered non-Copilot
+aliases retain upstream identity without a cold refresh replacing their registry.
 
 `src/claude/copilot-model.ts` normalizes explicitly provider-qualified dated Anthropic IDs to
 a matching live Copilot version after alias/modelMap translation. It preserves exact IDs,

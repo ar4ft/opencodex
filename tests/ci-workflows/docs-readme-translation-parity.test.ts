@@ -190,7 +190,7 @@ describe("README translation parity", () => {
     expect(englishAssets.length).toBeGreaterThanOrEqual(5);
     expect(englishRepoLinks.length).toBeGreaterThanOrEqual(5);
     expect(englishSponsorMarkers.length).toBeGreaterThanOrEqual(3);
-    expect(englishStructure[0]).toBe("fence:bash");
+    expect(englishStructure.slice(0, 2)).toEqual(["h1", "fence:sh"]);
     // An unclosed fence would make the tokenizer swallow the rest of the file.
     expect(english.split("\n").filter((line) => FENCE.test(line.trimEnd())).length % 2).toBe(0);
   });

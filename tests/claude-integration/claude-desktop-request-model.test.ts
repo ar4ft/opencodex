@@ -62,3 +62,28 @@ test("an explicit dateless modelMap overrides an unresolved date slot", async ()
     async () => { throw Error("must not discover"); });
   expect(resolveInboundModel(alias, cc)).toBe(route);
 });
+
+
+test("registered non-Copilot aliases retain upstream identity without new discovery", async () => {
+  buildDesktop3pRegistry([], [{ provider: "other", id: "chat" }], {
+    version: 1, assignments: { "other/chat": { family: "opus", alias } },
+    defaults: { opus: "other/chat", fable: null, sonnet: null, haiku: null },
+  });
+  await refreshDesktopRequestModel({ ...config, defaultProvider: "other" }, alias,
+    async () => { throw Error("must not discover"); });
+  expect(resolveInboundModel(alias)).toBe("other/chat");
+});
+
+test("generic dateless fallback cannot steal a missing managed picker slot", async () => {
+  buildDesktop3pRegistry([], []);
+  const cc = { modelMap: { "claude-opus-4-8": "other/chat" } };
+  const current = { ...config, defaultProvider: "other", claudeCode: cc };
+  await refreshDesktopRequestModel(current, alias, async () => { throw Error("must not discover"); });
+  expect(() => resolveInboundModel(alias, cc)).toThrow("mapping is unavailable");
+});
+
+
+test("legacy Copilot recovery does not impose a date-slot limit on unrelated providers", () => {
+  const rows = Array.from({ length: 4_000 }, (_, index) => ({ provider: "other", id: `model-${index}` }));
+  expect(() => buildDesktop3pRegistry([], rows)).not.toThrow();
+});

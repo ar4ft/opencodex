@@ -1,3 +1,38 @@
+# ar4ft/opencodex
+
+This fork routes GitHub Copilot subscription models to Grok and Claude. Native Codex CLI,
+Codex Desktop, and the ChatGPT app stay independent: startup, sync, stop, and updates do not
+write their config, catalogs, caches, history, or launchers, or restart their processes.
+Old configs that enable Codex integration do not override this fork policy.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/main/scripts/install.sh | sh
+ocx update-pre  # latest published prerelease
+ocx start
+ocx sync        # refresh provider models and enabled Grok/Claude integrations
+```
+
+Copilot discovery publishes only chat models enabled in your account's picker. `ocx sync`
+refreshes Claude Desktop's static picker and Claude Code's gateway cache. Launch Code with
+`ocx claude` and select models using `/model`. Open the dashboard at http://localhost:10100/;
+on macOS, `open http://localhost:10100/` opens it directly.
+
+Claude Desktop date slots encode model routes. For example, `claude-opus-4-8-20260330`
+identifies `github-copilot/claude-fable-5`, not Opus 4.8. The gateway recovers this mapping on
+cold requests and saves stable assignments during sync. Unavailable slots are rejected locally.
+Claude's public model catalog describes native model capabilities; it does not grant Copilot access.
+If an old provider selection hides new models, `ocx models selected github-copilot --clear`
+returns to showing all subscription-enabled models; then run `ocx sync`.
+
+Updating a binary does not replace an already-running proxy. Preview.2 and earlier shutdown
+hooks may restore native Codex files: the new CLI refuses their stop/restart/uninstall paths.
+To migrate without running those hooks, verify the old proxy PID with `ocx status`, terminate
+only that process with SIGKILL, then run `ocx start` and `ocx sync`. This interrupts active
+proxy requests. For later versions, `ocx stop` followed by `ocx start` uses the updated binary.
+
+The remaining project overview describes upstream features. Native Codex client integration
+commands are disabled in this fork.
+
 <p align="center">
   <img src="../assets/banner.png" alt="opencodex — Codex, Claude Code, Claude Desktop ve Grok Build için evrensel sağlayıcı proxy'si" width="100%">
 </p>
@@ -251,6 +286,29 @@ iyileştirmeleri ve henüz yayımlanmamış düzeltmeler npm paketine ulaşmadan
 
 <details>
 <summary>Ajanlar için</summary>
+
+This fork also offers standalone Linux/macOS binaries (x64 and ARM64):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"       # make oxc available in this terminal
+oxc login github-copilot
+oxc sync                # refresh the proxy and enabled Grok/Claude integrations
+oxc update              # update from this fork's GitHub releases
+```
+
+The installer needs curl and SHA-256 tooling, installs to `~/.oxc`, and configures PATH for
+`oxc`, `ocx`, and `opencodex`. No Node/npm/Bun installation is required for standalone binaries.
+Use `sh install.sh --version 0.0.10-preview.4`, `--stable`, `--prefix /absolute/path`, or `--no-modify-path`
+when running a downloaded installer. Repeating the installer updates atomically and keeps
+`~/.oxc/lib/opencodex.previous`; run `oxc restart` to refresh an already running proxy.
+The default selects the newest published release, including prereleases. The npm/source examples below describe upstream builds; use this fork
+installer to keep native Codex and ChatGPT clients independent.
+
+Run `ocx update-pre` (or `oxc update-pre`) to install the newest published GitHub prerelease
+binary on Linux/macOS. It skips stable releases and verifies SHA-256 before replacement.
+Existing standalone installations update in place; npm/source users bootstrap the standalone
+commands under `~/.oxc` and can activate them with `. "$HOME/.oxc/env"`.
 
 ```bash
 npm install -g @bitkyc08/opencodex

@@ -55,10 +55,12 @@ export function resolveInboundModel(model: string, cc?: OcxClaudeCodeConfig): st
   const map = cc?.modelMap ?? {};
   const exact = map[model];
   if (typeof exact === "string" && exact.length > 0) return exact;
-  // Operator-declared maps retain precedence over an unresolved picker slot.
+  // Preserve explicit Copilot migration maps without letting generic version
+  // fallbacks steal an unknown managed Desktop slot.
   const stripped = model.replace(/-\d{8}$/, "");
   const dateless = map[stripped];
-  if (typeof dateless === "string" && dateless.length > 0) return dateless;
+  if (typeof dateless === "string" && dateless.length > 0
+    && (!isUnresolvedDesktop3pAlias(model) || dateless.startsWith("github-copilot/"))) return dateless;
   if (isUnresolvedDesktop3pAlias(model)) {
     const base = model.endsWith("--fast") ? model.slice(0, -"--fast".length) : model;
     // A missing date-shaped ID is ambiguous even after a successful but partial

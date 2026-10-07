@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "../../src/codex/native-client-policy";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { managementFetch as fetch } from "../helpers/management-auth";
 import { logsFromApiBody } from "../helpers/logs-api";
@@ -950,7 +951,7 @@ test("Claude replay owns optional main enrichment while routed work survives dra
     await started;
     const response = await pending;
     expect(response.status).toBe(200);
-    expect(getNativeMainProfileRequestCount()).toBe(1);
+    expect(getNativeMainProfileRequestCount()).toBe(NATIVE_CODEX_CLIENT_SUPPORTED ? 1 : 0);
     drain = acquireNativeMainProfileDrain("claude-overlap");
     expect(drain).not.toBeNull();
     const routedDuringDrain = await postMessages(server.url.toString(), {
@@ -1149,18 +1150,26 @@ test("routed Claude requests give OpenAI sidecars main auth without leaking it t
   try {
     expect(await invokeMessages()).toBe(200);
 
-    expect(sidecarCalls.map(call => call.kind).sort()).toEqual(["vision", "web-search"]);
+    expect(sidecarCalls.map(call => call.kind).sort()).toEqual(NATIVE_CODEX_CLIENT_SUPPORTED ? ["vision", "web-search"] : []);
     for (const call of sidecarCalls) {
       expect(call.headers.get("authorization")).toBe(`Bearer ${mainAccessToken}`);
       expect(call.headers.get("chatgpt-account-id")).toBe(mainAccountId);
     }
-    expect(sidecarCalls.find(call => call.kind === "vision")?.body.input).toEqual(expect.any(Array));
-    expect(sidecarCalls.find(call => call.kind === "web-search")?.body.tools?.[0]?.type).toBe("web_search");
-    expect(routedCalls.length).toBe(2);
+    if (NATIVE_CODEX_CLIENT_SUPPORTED) {
+      expect(sidecarCalls.find(call => call.kind === "vision")?.body.input).toEqual(expect.any(Array));
+      expect(sidecarCalls.find(call => call.kind === "web-search")?.body.tools?.[0]?.type).toBe("web_search");
+    }
+    expect(routedCalls.length).toBe(NATIVE_CODEX_CLIENT_SUPPORTED ? 2 : 1);
     expect(routedCalls.every(call => call.authorization === "Bearer routed-provider-key")).toBe(true);
     const authenticatedRoutedBodies = JSON.stringify(routedCalls.map(call => call.body));
-    expect(authenticatedRoutedBodies).toContain(visionCaption);
-    expect(authenticatedRoutedBodies).not.toContain("[image omitted:");
+    if (NATIVE_CODEX_CLIENT_SUPPORTED) {
+      expect(authenticatedRoutedBodies).toContain(visionCaption);
+      expect(authenticatedRoutedBodies).not.toContain("[image omitted:");
+    } else {
+      expect(authenticatedRoutedBodies).not.toContain(mainAccessToken);
+      expect(authenticatedRoutedBodies).not.toContain(mainAccountId);
+      expect(authenticatedRoutedBodies).not.toContain(visionCaption);
+    }
     expect(authenticatedRoutedBodies).not.toContain(imageBytes);
 
     rmSync(join(isolatedCodexHome!.path, "auth.json"));

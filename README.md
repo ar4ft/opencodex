@@ -290,17 +290,17 @@ This fork also offers standalone Linux/macOS binaries (x64 and ARM64):
 curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
 . "$HOME/.oxc/env"       # make oxc available in this terminal
 oxc login github-copilot
-oxc sync                # refresh the enabled Copilot chat models in Codex
+oxc sync                # refresh the proxy and enabled Grok/Claude integrations
 oxc update              # update from this fork's GitHub releases
 ```
 
 The installer needs curl and SHA-256 tooling, installs to `~/.oxc`, and configures PATH for
 `oxc`, `ocx`, and `opencodex`. No Node/npm/Bun installation is required for standalone binaries.
-Use `sh install.sh --version 0.0.9`, `--stable`, `--prefix /absolute/path`, or `--no-modify-path`
+Use `sh install.sh --version 0.0.10-preview.4`, `--stable`, `--prefix /absolute/path`, or `--no-modify-path`
 when running a downloaded installer. Repeating the installer updates atomically and keeps
 `~/.oxc/lib/opencodex.previous`; run `oxc restart` to refresh an already running proxy.
-The default selects the newest published release, including prereleases. npm installs below
-continue using npm for updates.
+The default selects the newest published release, including prereleases. The npm/source examples below describe upstream builds; use this fork
+installer to keep native Codex and ChatGPT clients independent.
 
 Run `ocx update-pre` (or `oxc update-pre`) to install the newest published GitHub prerelease
 binary on Linux/macOS. It skips stable releases and verifies SHA-256 before replacement.
@@ -310,7 +310,7 @@ commands under `~/.oxc` and can activate them with `. "$HOME/.oxc/env"`.
 ```bash
 npm install -g @bitkyc08/opencodex
 ocx start     # or `ocx service`
-ocx init      # interactive setup: writes ~/.opencodex/config.json and wires Codex
+ocx init      # interactive setup for proxy providers and enabled clients
 ```
 
 `ocx init` never starts the proxy; start it first (or after — either order works, but headless
