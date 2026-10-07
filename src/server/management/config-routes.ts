@@ -131,100 +131,6 @@ async function sidecarVisionResponseSettings(config: OcxConfig): Promise<{
   return { model, reasoning, models };
 }
 
-/** One client's outcome from a fan-out sync. Absent from the list means "left alone". */
-interface ClientIntegrationSyncOutcome {
-  readonly client: "grok" | "claude-desktop" | "mcode";
-  readonly ok: boolean;
-  readonly changed?: boolean;
-  readonly reason?: string;
-}
-
-/**
- * Re-inject native clients that are switched ON and file integrations whose
- * OpenCodex ownership record is the operator's durable opt-in.
- *
- * Only Codex used to run here, so a catalog change reached Codex and nothing else: a Grok
- * fence or a written Desktop profile kept the context windows it was created with until the
- * next `ocx start`. The startup path already gates each client on its own toggle
- * (`src/cli/index.ts`), and this is that same fan-out for the on-demand command.
- *
- * A client that is OFF or never connected is omitted from the result rather than reported as skipped — the
- * caller has to be able to tell "not touched" from "tried and failed". A client that fails
- * does not fail the sync: Codex is the one that matters for routing, and a broken Grok file
- * should surface as a warning, not as a 500 on a command that did its main job.
- */
-async function syncEnabledClientIntegrations(
-  port: number | undefined,
-  config: OcxConfig,
-): Promise<ClientIntegrationSyncOutcome[]> {
-  if (port === undefined) return [];
-  const { claudeDesktopIntegrationEnabled, grokIntegrationEnabled } = await import("../../codex/desired-state");
-  const out: ClientIntegrationSyncOutcome[] = [];
-
-  if (grokIntegrationEnabled(config)) {
-    try {
-      const { syncGrokConfig } = await import("../../grok/sync");
-      const r = await syncGrokConfig(port, config, config.hostname ? { hostname: config.hostname } : {});
-      out.push(r.ok
-        ? { client: "grok", ok: true, changed: r.changed === true }
-        : { client: "grok", ok: false, reason: r.message });
-    } catch (error) {
-      out.push({ client: "grok", ok: false, reason: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  if (claudeDesktopIntegrationEnabled(config)) {
-    try {
-      const { writeDesktop3pConfig } = await import("../../claude/desktop-3p");
-      const { desktopVisibleNativeSlugs, filterCatalogVisibleModels } = await import("../../codex/catalog");
-      const { fetchAllModels } = await import("../management-api");
-      const routed = filterCatalogVisibleModels(await fetchAllModels(config), config)
-        .map(model => ({ provider: model.provider, id: model.id, contextWindow: model.contextWindow }));
-      const r = writeDesktop3pConfig(
-        port,
-        [...desktopVisibleNativeSlugs(config)],
-        routed,
-        config.apiKeys?.[0]?.key,
-        "static",
-        config.claudeCode?.desktopProfile,
-        nativeContextLimits(config),
-      );
-      out.push(r.written
-        ? { client: "claude-desktop", ok: true, changed: true }
-        : { client: "claude-desktop", ok: false, reason: r.reason ?? "Claude Desktop write failed" });
-    } catch (error) {
-      out.push({ client: "claude-desktop", ok: false, reason: error instanceof Error ? error.message : String(error) });
-    }
-  }
-
-  try {
-    const { refreshOwnedIntegration } = await import("../../integrations/owned-refresh");
-    const result = await refreshOwnedIntegration({
-      clientId: "mcode",
-      models: async () => {
-        const { loadExportModels } = await import("./model-rows");
-        return loadExportModels(config);
-      },
-      config,
-      port,
-    });
-    if (result) {
-      out.push(result.ok
-        ? {
-            client: "mcode",
-            ok: true,
-            changed: result.changed === true,
-            ...(result.reason ? { reason: result.reason } : {}),
-          }
-        : { client: "mcode", ok: false, reason: result.reason });
-    }
-  } catch (error) {
-    out.push({ client: "mcode", ok: false, reason: error instanceof Error ? error.message : String(error) });
-  }
-
-  return out;
-}
-
 function publicVisionSidecarSettings(
   config: OcxConfig,
   vision: Awaited<ReturnType<typeof sidecarVisionResponseSettings>>,
@@ -505,30 +411,11 @@ export async function handleConfigRoutes(ctx: ManagementContext): Promise<Respon
   }
 
   if (url.pathname === "/api/sync" && req.method === "POST") {
-    const { syncModelsToCodex } = await import("../../codex/sync");
-    const { attachStaleAppServerHint } = await import("../../codex/app-server-processes");
-    const [{ readRuntimePort }, { loadConfig }] = await Promise.all([
-      import("../../config/process-state"),
-      import("../../config"),
-    ]);
-    // Never use the server-captured startup object for a durable integration
-    // decision. A toggle may have persisted while this process was gathering.
+    const { syncProxyClients } = await import("../../clients/sync");
+    const { readRuntimePort } = await import("../../config/process-state");
+    const { loadConfig } = await import("../../config");
     const runtime = readRuntimePort(process.pid);
-    const config = loadConfig();
-    const result = await syncModelsToCodex(runtime?.port, config, null);
-    // A sync used to stop here, so a Grok fence or a Desktop profile kept whatever
-    // context windows it was written with while the Codex catalog moved on. The
-    // startup path already fans out to every enabled client; this is the same fan-out
-    // for the on-demand command. Codex goes first because the others read its catalog.
-    const integrations = result.status === "refused"
-      ? []
-      : await syncEnabledClientIntegrations(runtime?.port, config);
-    const status = result.status === "refused" ? 409 : (result.status === "skipped" || result.ok ? 200 : 500);
-    return jsonResponse({
-      ...attachStaleAppServerHint(result),
-      ...(integrations.length > 0 ? { integrations } : {}),
-      ...(result.ok ? {} : { error: result.message }),
-    }, status);
+    return jsonResponse(await syncProxyClients(runtime?.port ?? config.port, loadConfig()));
   }
 
   if (url.pathname === "/api/update/check" && req.method === "GET") {

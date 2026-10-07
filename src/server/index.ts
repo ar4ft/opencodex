@@ -574,7 +574,7 @@ export function startServer(port?: number, deps: StartServerDeps = {}): Server<W
   // serving. It now takes K so it cannot race a convergence commit. Use the home
   // paired with the ownership inspection; re-reading ambient CODEX_HOME here could
   // invalidate a different installation after an environment or mount change.
-  if (startupCacheOwnership.ownership === "owned" && startupOwnershipHomes !== null) {
+  if (shouldSyncCodexOnStart(config) && startupCacheOwnership.ownership === "owned" && startupOwnershipHomes !== null) {
     try {
       const startupCodexHome = startupOwnershipHomes.codexHome;
       // #1046: record whether this actually rewrote the cache. `handleStart` ORs this
@@ -601,7 +601,7 @@ export function startServer(port?: number, deps: StartServerDeps = {}): Server<W
   registerAppOwnedMemorySweepFallback();
   configureAppOwnedMemoryBudget(resolveAppOwnedMemoryBudgetBytes(config.appOwnedMemoryBudgetMb));
   enforceAppOwnedMemoryBudget();
-  registerCodexCooldownRecoveryProbeWorker(config);
+  if (shouldSyncCodexOnStart(config)) registerCodexCooldownRecoveryProbeWorker(config);
   // Issue #42 Phase 3: opt-in archived auto-cleanup (default OFF). Unref'd hourly
   // tick for daily/weekly; startup evaluation is fire-and-forget after listen.
   // Heavy work runs in a Worker via the single-flight job controller.

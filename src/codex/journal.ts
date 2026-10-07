@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
@@ -85,6 +86,7 @@ export interface WriteJournalOptions {
  * plugins, model choice, and trusted projects.
  */
 export function writeJournal(options: WriteJournalOptions = {}): void {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return;
   if (!existsSync(CODEX_CONFIG_PATH)) return;
   const config = options.configContent ?? readFileSync(CODEX_CONFIG_PATH, "utf-8");
   // Ownership is decided HERE, from the bytes about to be journaled — never taken
@@ -118,6 +120,7 @@ export function markJournalInjectedState(
   profile: string | null,
   ownership: InjectedJournalOwnership,
 ): void {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return;
   const journal = readJournal();
   if (!journal) return;
   // The first exact injected config is the only safe whole-snapshot restore boundary for
@@ -153,6 +156,7 @@ export function journaledInjectedCatalogPath(): string | null {
 }
 
 export function removeJournal(): void {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return;
   try { unlinkSync(JOURNAL_PATH); } catch { /* ignore */ }
 }
 
@@ -169,6 +173,7 @@ function readJournal(): Journal | null {
 }
 
 export function restoreJournalState(): RestoreJournalResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { configRestored: false, profileRestored: false, configChanged: false, profileChanged: false, complete: true };
   const journal = readJournal();
   if (!journal) {
     return { configRestored: false, profileRestored: false, configChanged: false, profileChanged: false, complete: false };

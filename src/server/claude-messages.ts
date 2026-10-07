@@ -655,6 +655,8 @@ async function handleClaudeMessagesWithBudget(
     }
     const translation = anthropicToResponsesTranslation(anthropicBody, config.claudeCode);
     internalBody = translation.body;
+    const { resolveCopilotClaudeModel } = await import("../claude/copilot-model");
+    internalBody.model = await resolveCopilotClaudeModel(config, internalBody.model as string);
     translatorBudget.chargeRetained(new TextEncoder().encode(JSON.stringify(internalBody)).byteLength, { kind: "request_copies" });
     cacheKeySource = translation.cacheKeySource;
   } catch (err) {

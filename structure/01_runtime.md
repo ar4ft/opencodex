@@ -1,5 +1,10 @@
 # Runtime SOT
 
+Fork override: `src/codex/native-client-policy.ts` excludes native Codex/ChatGPT client writes
+and probes, including with old ON configs. `src/clients/sync.ts` refreshes provider discovery
+and enabled Grok/Claude integrations. `sync-cache` aliases this path; restart flags have no
+process effects. The upstream integration architecture below is retained as reference.
+
 ## Entrypoints
 
 | Path | Responsibility |

@@ -3,6 +3,9 @@ title: Cycle de vie de la CLI
 description: Commandes de configuration initiale, de démarrage, d’arrêt, de service, de diagnostic, de synchronisation et de mise à jour.
 ---
 
+> This page documents upstream behavior. For the ar4ft fork, use [Fork lifecycle](/fr/reference/cli/fork-lifecycle/). Native Codex and ChatGPT client integration is disabled in this fork.
+
+
 Ces commandes permettent d’installer, d’exécuter, d’examiner, de réparer et de mettre à jour le proxy opencodex local ainsi que son intégration à Codex.
 
 ## Configuration initiale

@@ -27,21 +27,6 @@ export function maybeAutoRestoreCodexShim(
   args: string[],
   deps: CodexShimAutoRestoreCliDeps = DEFAULT_DEPS,
 ): void {
-  if (skipsCodexShimAutoRestore(command, args)) return;
-  try {
-    const result = deps.restore({
-      enabled: () => codexShimAutoRestoreEnabled(deps.readConfig().config, deps.env),
-    });
-    if (result.status === "restored") {
-      deps.warn(`⚠️  ${result.message} (automatic repair after Codex update)`);
-    } else if ((result.status === "deferred" || result.status === "ineligible") && result.message) {
-      deps.warn(`⚠️  ${result.message}`);
-    }
-  } catch (error) {
-    deps.warn(
-      `⚠️  Codex shim auto-restore failed; continuing without it: ${
-        error instanceof Error ? error.message : String(error)
-      }. Run 'ocx codex-shim install' after the Codex update finishes.`,
-    );
-  }
+  // Native launchers are outside this fork's client integrations.
+  void command; void args; void deps;
 }

@@ -1,4 +1,25 @@
-<h3 align="center">make codex open!</h3>
+# ar4ft/opencodex
+
+This fork routes GitHub Copilot subscription models to Grok and Claude. Native Codex CLI,
+Codex Desktop, and the ChatGPT app stay independent: startup, sync, stop, and updates do not
+write their config, catalogs, caches, history, or launchers, or restart their processes.
+Old configs that enable Codex integration do not override this fork policy.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/main/scripts/install.sh | sh
+ocx update-pre  # latest published prerelease
+ocx start
+ocx sync        # refresh provider models and enabled Grok/Claude integrations
+```
+
+Copilot discovery publishes only chat models enabled in your account's picker. Claude's dated
+IDs are mapped to the same version in that roster (for example, `claude-opus-4-8-20260330`
+to `claude-opus-4.8`); unavailable versions are never substituted.
+
+The remaining project overview describes upstream features. Native Codex client integration
+commands are disabled in this fork.
+
+<h3 align="center">Upstream project</h3>
 <p align="center"><b>Universal provider proxy for OpenAI Codex, Claude Code, Claude Desktop &amp; Grok Build</b><br>
 Two commands, and every one of them runs any LLM you point it at.</p>
 

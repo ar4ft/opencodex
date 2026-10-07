@@ -57,6 +57,7 @@ import { scheduleCatalogPrewarm } from "./catalog-prewarm";
 import { maybeShowUpdatePrompt } from "../update/notify";
 import { syncModelsToCodex } from "../codex/sync";
 import {
+  shouldSyncCodexOnStart,
   shouldSyncGrokOnStart,
   syncCodexOnStartIfEnabled,
 } from "../codex/desired-state";
@@ -213,7 +214,7 @@ async function findProxyOwnerBeforeJournalRecovery(
   // The probe established that the snapshotted owner is stale. Compare before
   // deleting so a concurrent start that rewrote the PID file keeps its state.
   removePidIfValueIs(pidSnapshot);
-  if (!currentExternalCodexModelProvider()) reconcileJournal();
+  if (shouldSyncCodexOnStart(loadConfig()) && !currentExternalCodexModelProvider()) reconcileJournal();
   return { live: null, pidSnapshot };
 }
 
@@ -316,7 +317,7 @@ async function handleStart(options: { block?: boolean } = {}) {
     removePid(process.pid);
     removeRuntimePort(process.pid);
     const preserveRouting = process.env.OCX_SERVICE === "1";
-    if (!recycling && !preserveRouting && !currentExternalCodexModelProvider()) {
+    if (shouldSyncCodexOnStart(loadConfig()) && !recycling && !preserveRouting && !currentExternalCodexModelProvider()) {
       try {
         const restored = restoreNativeCodex();
         if (!restored.success) {
@@ -401,7 +402,7 @@ async function handleStart(options: { block?: boolean } = {}) {
     const { warnIfStaleCodexAppServersAfterStartupWrite } = await import("../codex/app-server-processes");
     warnIfStaleCodexAppServersAfterStartupWrite({ log: console });
   }
-  if (!currentExternalCodexModelProvider() && !shouldInjectApiAuthHeader(config) && config.syncResumeHistory !== false) {
+  if (shouldSyncCodexOnStart(config) && !currentExternalCodexModelProvider() && !shouldInjectApiAuthHeader(config) && config.syncResumeHistory !== false) {
     historyGuardian = startHistoryMigrationGuardian();
   }
   // Build Desktop 3P alias registry so inbound claude-opus-4-8-{code} aliases (and legacy claude-opus-4-{code}) decode correctly.
@@ -626,7 +627,7 @@ async function handleRestartStartWhenStopped(): Promise<boolean | "skipped"> {
 
 async function restoreSharedClientStateAfterStop(): Promise<boolean> {
   let restored = true;
-  try {
+  if (shouldSyncCodexOnStart(loadConfig())) try {
     const result = await restoreNativeCodexAsync();
     if (result.success) console.log(`↩️  ${result.message}`);
     else {
@@ -777,7 +778,7 @@ async function handleUninstall() {
     });
   }
 
-  await runStep("native Codex restored", async () => {
+  if (shouldSyncCodexOnStart(loadConfig())) await runStep("native Codex restored", async () => {
     const r = await restoreNativeCodexAsync();
     if (!r.success) throw new Error(r.message);
   });
@@ -798,7 +799,7 @@ async function handleUninstall() {
     if (!r.removed && r.reason !== "not installed" && r.reason !== "not macOS") throw new Error(r.reason ?? "remove failed");
   });
 
-  try {
+  if (shouldSyncCodexOnStart(loadConfig())) try {
     const { uninstallCodexShim } = await import("../codex/shim");
     const r = uninstallCodexShim();
     console.log(r.removed ? "✅ Codex autostart shim removed" : "- Codex autostart shim removed: not installed");

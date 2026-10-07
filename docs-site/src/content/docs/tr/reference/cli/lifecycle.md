@@ -3,6 +3,9 @@ title: CLI Yaşam Döngüsü
 description: Kurulum, başlatma, durdurma, servis, tanılama, senkronizasyon ve güncelleme komutları.
 ---
 
+> This page documents upstream behavior. For the ar4ft fork, use [Fork lifecycle](/tr/reference/cli/fork-lifecycle/). Native Codex and ChatGPT client integration is disabled in this fork.
+
+
 Bu komutlar, yerel opencodex proxy'sini ve Codex entegrasyonunu kurar,
 çalıştırır, inceler, onarır ve günceller.
 

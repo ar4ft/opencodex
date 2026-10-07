@@ -14,12 +14,11 @@ import type { ReadyArgs } from "./ready";
 import type { LiveProxy } from "../server/proxy-liveness";
 import type { OcxConfig } from "../types";
 import { hasHelpFlag, printSubcommandUsage, printUsage } from "./help";
-import { setIntegrationEnabled, shouldSyncCodexOnStart } from "../codex/desired-state";
+import { setIntegrationEnabled } from "../codex/desired-state";
 import { syncModelsToCodex } from "../codex/sync";
 import { collectOrcaCodexHomeDiagnostic } from "../codex/home";
 import { restoreNativeCodexAsync } from "../codex/inject";
 import { stripGrokConfig } from "../grok/inject";
-import { afterCatalogWriteHandleAppServers } from "../codex/app-server-processes";
 import { normalizeUpdateChannel, runGuiUpdateWorker } from "../update/job";
 
 export interface CliDispatchDeps {
@@ -172,6 +171,10 @@ const commandRunners: Record<string, CommandRunner> = {
   },
   doctor: async deps => {
     const doctorArgs = deps.args.slice(1);
+    if (doctorArgs.some(arg => arg.startsWith("--fix-codex") || arg === "--recover-zero-byte-coordinator")) {
+      console.error("Native Codex repairs are disabled in this fork.");
+      return 2;
+    }
     const { RECOVER_ZERO_BYTE_COORDINATOR_FLAG, runDoctor } = await import("./doctor");
     await runDoctor(doctorArgs);
     if (!doctorArgs.includes("--fix-codex-runtime") && !doctorArgs.includes(RECOVER_ZERO_BYTE_COORDINATOR_FLAG)) {
@@ -203,86 +206,44 @@ const commandRunners: Record<string, CommandRunner> = {
     return 0;
   },
   sync: async deps => {
-    const syncArgs = deps.args.slice(1);
-    const restartCodex = syncArgs.includes("--restart-codex");
-    // Separate flag on purpose: --restart-codex promises app-server-only scope,
-    // and quitting the desktop app ends live conversations.
-    const restartDesktopApp = syncArgs.includes("--restart-desktop-app");
-    const live = await deps.findLiveProxy();
-    const synced = await syncModelsToCodex(
-      live?.port,
-      undefined,
-      undefined,
-      undefined,
-      { catalogEvenWhenNotInjected: true },
-    );
-    let code = 0;
-    if (synced.status === "skipped") {
-      console.log("Codex integration is OFF; sync skipped and no Codex files changed.");
-    } else if (synced.status === "catalog-only") {
-      // Explicit sync with the integration OFF still refreshes the catalog/cache
-      // for side profiles that consume the proxy without injection.
-      console.log(synced.message ?? "Codex integration is OFF; catalog refreshed, Codex config untouched.");
-    } else if (!synced.ok) {
-      code = 1;
-      console.error("Codex sync did not complete. Fix the reported Codex config issue and retry.");
+    if (deps.args.slice(1).some(arg => arg !== "--restart-codex" && arg !== "--restart-desktop-app")) {
+      console.error("Usage: ocx sync");
+      return 2;
     }
-    // Only warn/restart when a catalog or models_cache write actually happened. This is
-    // deliberately not an `else`: refreshCodexModelCatalog runs before injectCodexConfig,
-    // so a sync can fail (`ok: false`) after the catalog was already rewritten — which is
-    // exactly when a long-lived app-server is holding the stale list.
-    if (synced.catalogWritten || synced.cacheSynced) {
-      afterCatalogWriteHandleAppServers({ restart: restartCodex, log: console });
-      if (restartDesktopApp) await handleDesktopAppRestart(console);
-    }
-    // `ocx sync` is a direct CLI path; it does not call the management
-    // `/api/sync` route. Refresh the already-connected MCode block here too,
-    // after Codex has published the catalog that supplies its capabilities.
-    if (synced.status !== "refused" && live) {
-      try {
-        const config = deps.loadConfig();
-        const { refreshOwnedIntegration } = await import("../integrations/owned-refresh");
-        const result = await refreshOwnedIntegration({
-          clientId: "mcode",
-          models: async () => {
-            const { loadExportModels } = await import("../server/management/model-rows");
-            return loadExportModels(config);
-          },
-          config,
-          port: live.port,
-        });
-        if (result?.changed) console.log("MCode integration refreshed from the current catalog.");
-        else if (result?.reason) console.warn(`MCode integration was not refreshed: ${result.reason}`);
-      } catch (error) {
-        console.warn(`MCode integration was not refreshed: ${error instanceof Error ? error.message : String(error)}`);
+    try {
+      const live = await deps.findLiveProxy();
+      if (live) {
+        const { runtimeRequest } = await import("./runtime-api");
+        let policy: { version?: number; nativeClientIntegration?: boolean };
+        try {
+          policy = await runtimeRequest("/api/fork-client-policy", {}, { baseUrl: `http://${deps.probeHostname(live.hostname)}:${live.port}` });
+        } catch {
+          throw Error("Running proxy predates native-client isolation; start a new proxy with this release before syncing.");
+        }
+        if (policy.version !== 1 || policy.nativeClientIntegration !== false) {
+          throw Error("Running proxy has no native-client isolation policy; sync refused.");
+        }
       }
+      const result = live
+        ? await (await import("./runtime-api")).runtimeRequest<{ message: string; integrations: Array<{ client: string; ok: boolean; reason?: string }> }>(
+            "/api/sync", { method: "POST" }, { baseUrl: `http://${deps.probeHostname(live.hostname)}:${live.port}` })
+        : await (await import("../clients/sync")).syncProxyClients(undefined, deps.loadConfig());
+      console.log(result.message);
+      for (const integration of result.integrations) {
+        if (!integration.ok) console.warn(`${integration.client}: ${integration.reason ?? "refresh failed"}`);
+      }
+      if (!live) console.log("Start the proxy to refresh enabled Grok/Claude integrations.");
+      return result.integrations.some(integration => !integration.ok) ? 1 : 0;
+    } catch (error) {
+      console.error(`Provider sync failed: ${error instanceof Error ? error.message : String(error)}`);
+      return 1;
     }
-    return code;
   },
   v2: async deps => {
     const { cmdV2 } = await import("./v2");
     return await cmdV2(deps.args.slice(1), {}, async () => (await deps.findLiveProxy())?.port);
   },
-  "sync-cache": async deps => {
-    const cacheArgs = deps.args.slice(1);
-    const restartCodex = cacheArgs.includes("--restart-codex");
-    const restartDesktopApp = cacheArgs.includes("--restart-desktop-app");
-    const { withCatalogWriteSerialization } = await import("../codex/catalog-write-serialization");
-    const { invalidateCodexModelsCacheWithPermit } = await import("../codex/catalog/sync");
-    const { getCodexHome } = await import("../codex/paths");
-    const owningCodexHome = getCodexHome();
-    const desiredDisabled = !shouldSyncCodexOnStart(deps.loadConfig());
-    const invalidated = withCatalogWriteSerialization(owningCodexHome, permit =>
-      invalidateCodexModelsCacheWithPermit(permit, owningCodexHome, { allowWhenDesiredDisabled: true }));
-    // Only warn/restart when models_cache was actually rewritten from a readable catalog.
-    if (invalidated.kind === "completed" && invalidated.value) {
-      afterCatalogWriteHandleAppServers({ restart: restartCodex, log: console });
-      if (restartDesktopApp) await handleDesktopAppRestart(console);
-    } else if (desiredDisabled) {
-      console.log("Codex integration is OFF; cache sync skipped (no catalog or cache write).");
-    }
-    return 0;
-  },
+  "sync-cache": async deps => commandRunners.sync(deps),
   gui: async deps => {
     const config = deps.loadConfig();
     // Identity-checked liveness (not the pid file + a fixed sleep): finds a fallback-port
@@ -591,6 +552,10 @@ export async function dispatchCommand(head: CliHead, deps: CliDispatchDeps): Pro
     printUsage();
     return 0;
   }
+  if (["restore", "recover-history", "codex-shim", "codex-log-guard", "chatgpt"].includes(resolveDispatchCommand(command) ?? command)) {
+    console.error("Native Codex and ChatGPT client integration is disabled in this fork.");
+    return 2;
+  }
   const runner = commandRunners[resolveDispatchCommand(command) ?? ""];
   if (!runner) {
     console.error(`Unknown command: ${command}`);
@@ -598,43 +563,4 @@ export async function dispatchCommand(head: CliHead, deps: CliDispatchDeps): Pro
     return 1;
   }
   return await runner(deps);
-}
-
-/**
- * Report the outcome of an opt-in desktop-app restart. Kept next to the two
- * callers so `sync` and `sync-cache` cannot drift in what they tell the user.
- */
-async function handleDesktopAppRestart(log: Pick<Console, "log" | "error">): Promise<void> {
-  const { restartCodexDesktopApp } = await import("../codex/desktop-app-restart");
-  const result = restartCodexDesktopApp();
-  switch (result.reason) {
-    case "windows_only":
-      log.error("--restart-desktop-app is supported on Windows only; nothing was stopped.");
-      return;
-    case "package_discovery_failed":
-      log.error(
-        "Could not identify the installed Codex desktop package. Quit and relaunch the desktop app "
-        + "manually to refresh the model picker.",
-      );
-      return;
-    case "self_ancestry":
-      log.error(
-        "Refusing to restart the desktop app because this command is running inside it. "
-        + "Run 'ocx sync --restart-desktop-app' from an external terminal instead.",
-      );
-      return;
-    case "no_targets":
-      log.log("Codex desktop app is not running; nothing to restart.");
-      return;
-    case "targets_survived":
-      log.error(
-        `Codex desktop app PID(s) ${result.surviving.join(", ")} did not exit, so it was not relaunched. `
-        + "Quit the desktop app manually to refresh the model picker.",
-      );
-      return;
-    default:
-      if (result.relaunch === "started") {
-        log.log("Codex desktop app restarted; its model picker will re-read the catalog.");
-      }
-  }
 }

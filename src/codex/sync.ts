@@ -34,13 +34,7 @@ export interface CodexSyncResult {
 }
 
 export interface CodexSyncOptions {
-  /**
-   * Explicit `ocx sync` is also the refresh path for side profiles that consume
-   * the OpenCodex catalog without injection. When set, the sync still refreshes
-   * the catalog and models cache even if the Codex integration toggle is OFF or
-   * an external `model_provider` owns config.toml. Config/history injection is
-   * skipped in those cases, so the behavior is harmless to a native home.
-   */
+  /** Compatibility option; never overrides this fork's exclusion of native clients. */
   catalogEvenWhenNotInjected?: boolean;
 }
 
@@ -86,7 +80,7 @@ export async function syncModelsToCodex(
   // through an older captured object.
   const desiredDisabled = !shouldSyncCodexOnStart(loadConfig());
   const catalogEvenWhenNotInjected = options.catalogEvenWhenNotInjected === true;
-  if (desiredDisabled && !catalogEvenWhenNotInjected) {
+  if (desiredDisabled) {
     return {
       status: "skipped",
       skippedReason: "desired_disabled",

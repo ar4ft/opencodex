@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import type { AdmissionLease } from "../lib/admission";
 import {
   tryAcquireNativeMainProfileClaim as tryAcquireLifecycleNativeMainProfileClaim,
@@ -23,6 +24,7 @@ export function tryClaimNativeMainProfileForTurn(
   lease?: AdmissionLease,
   deps: NativeMainTurnClaimDeps = {},
 ): boolean {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return false;
   const isBlocked = deps.isTrafficBlocked ?? isNativeMainTrafficBlocked;
   const claimTurn = deps.claimTurn ?? tryClaimLifecycleNativeMainProfileForTurn;
   if (isBlocked()) return false;
@@ -38,6 +40,7 @@ export function tryClaimNativeMainProfileForTurn(
 
 /** Acquire standalone ownership only when both native-main gates admit work. */
 export function tryAcquireNativeMainProfileClaim(): AdmissionLease | null {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return null;
   if (isNativeMainTrafficBlocked()) return null;
   const claim = tryAcquireLifecycleNativeMainProfileClaim();
   if (!claim) return null;

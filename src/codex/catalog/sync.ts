@@ -1679,6 +1679,9 @@ export async function syncCatalogModels(
   config: OcxConfig,
   options?: CodexCatalogSyncOptions,
 ): Promise<RetainedCatalogSyncResult> {
+  if (!shouldSyncCodexOnStart(config)) return {
+    added: 0, path: "", catalogWritten: false, comboOmissions: [], skippedReason: "desired_disabled",
+  };
   const owningCodexHome = getCodexHome();
   const preflightRead = readRetainedCatalogSync(config);
   if (preflightRead === null) {
@@ -1720,7 +1723,7 @@ export async function syncCatalogModels(
     // of a routed catalog/cache surviving a completed disable. An explicit
     // catalog-only sync opts out of that gate: the user asked for a refresh even
     // when injection is OFF, and the toggle only protects config/history writes.
-    if (!shouldSyncCodexOnStart(loadConfig()) && options?.allowWhenDesiredDisabled !== true) {
+    if (!shouldSyncCodexOnStart(loadConfig())) {
       return {
         added: 0,
         path: prepared.catalogPath,
@@ -1831,7 +1834,7 @@ export function invalidateCodexModelsCacheWithPermit(
     // routed cache write — re-read intent under this permit, same as the commit.
     // The catalog-only sync override applies here too so an explicit refresh
     // keeps the cache consistent with the catalog it just wrote.
-    if (!shouldSyncCodexOnStart(loadConfig()) && options?.allowWhenDesiredDisabled !== true) return false;
+    if (!shouldSyncCodexOnStart(loadConfig())) return false;
     const catalogPath = readCodexCatalogPathForHome(owningCodexHome);
     const cachePath = join(owningCodexHome, "models_cache.json");
     if (!existsSync(catalogPath)) return false;
@@ -1875,6 +1878,7 @@ export function invalidateCodexModelsCacheWithPermit(
 }
 
 export function invalidateCodexModelsCache(options?: CodexCatalogSyncOptions): boolean {
+  if (!shouldSyncCodexOnStart(loadConfig())) return false;
   const owningCodexHome = getCodexHome();
   const outcome = withCatalogWriteSerialization(
     owningCodexHome,

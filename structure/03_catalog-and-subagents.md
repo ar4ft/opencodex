@@ -1,3 +1,7 @@
+> Fork override: native Codex catalog/cache writes and bundled-runtime probes are disabled.
+> Grok and Claude consume provider discovery directly. `src/claude/copilot-model.ts` resolves
+> Anthropic dated IDs only to the same available Copilot model version.
+
 # Catalog And Subagents SOT
 
 ## Shared catalog

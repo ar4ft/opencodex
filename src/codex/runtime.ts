@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -503,6 +504,7 @@ function resolveCacheKey(deps: ResolveCodexRuntimeDeps): string | null {
  * Resolve the single Codex runtime OpenCodex should use for sync, clamp, and probes.
  */
 export function resolveCodexRuntime(deps: ResolveCodexRuntimeDeps = {}): ResolveCodexRuntimeResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { runtime: { command: "codex", version: null, source: "fallback" }, failures: [] };
   const cacheKey = resolveCacheKey(deps);
   if (cacheKey && resolveCache && resolveCache.key === cacheKey && Date.now() - resolveCache.at < RESOLVE_CACHE_MS) {
     return cloneAndDeepFreeze(resolveCache.value);

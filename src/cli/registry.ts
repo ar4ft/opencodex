@@ -88,23 +88,14 @@ export const CLI_COMMANDS: CliCommandEntry[] = [
   { name: "ensure", usage: "ocx ensure", summary: "Ensure the proxy is running and Codex config/cache are current." },
   {
     name: "sync",
-    usage: "ocx sync [--restart-codex] [--restart-desktop-app]",
-    summary: "Fetch provider models and inject them into Codex config.",
-    details: [
-      "After writing the catalog, warns if long-lived Codex app-server processes are still running.",
-      "--restart-codex sends SIGTERM only to matching app-server / code-mode-host processes (may interrupt active turns).",
-      "--restart-desktop-app (Windows only, opt-in) fully restarts the Codex desktop app so its model picker re-reads the catalog. Never implied by --restart-codex: it ends live conversations.",
-    ],
+    usage: "ocx sync",
+    summary: "Refresh provider models and enabled Grok/Claude integrations.",
+    details: ["Native Codex and ChatGPT client files and processes are untouched."],
   },
   {
     name: "sync-cache",
-    usage: "ocx sync-cache [--restart-codex] [--restart-desktop-app]",
-    summary: "Refresh Codex's model cache from the active catalog.",
-    details: [
-      "Warns when Codex app-server processes still hold an in-memory model list.",
-      "--restart-codex sends SIGTERM only to matching app-server / code-mode-host processes (may interrupt active turns).",
-      "--restart-desktop-app (Windows only, opt-in) fully restarts the Codex desktop app so its model picker re-reads the catalog. Never implied by --restart-codex: it ends live conversations.",
-    ],
+    usage: "ocx sync-cache",
+    summary: "Alias for provider and Grok/Claude sync.",
   },
   { name: "status", usage: "ocx status", summary: "Check proxy server status." },
   {

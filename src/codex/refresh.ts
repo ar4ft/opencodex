@@ -1,3 +1,4 @@
+import { shouldSyncCodexOnStart } from "./desired-state";
 import { existsSync, readFileSync } from "node:fs";
 import { invalidateCodexModelsCache, syncCatalogModels } from "./catalog";
 import type { ComboCatalogOmission } from "./catalog/aggregation";
@@ -30,6 +31,7 @@ const defaultDeps: RefreshDeps = {
 };
 
 export function syncCodexModelsCacheFromCatalog(catalogPath: string): void {
+  if (!shouldSyncCodexOnStart({})) return;
   const content = readFileSync(catalogPath, "utf8");
   atomicWriteFile(CODEX_MODELS_CACHE_PATH, content);
 }
@@ -45,6 +47,10 @@ export async function refreshCodexModelCatalog(
   deps: RefreshDeps = defaultDeps,
   options?: CodexCatalogSyncOptions,
 ): Promise<CodexCatalogRefreshResult> {
+  if (!shouldSyncCodexOnStart(config)) return {
+    added: 0, path: "", catalogExists: false, catalogWritten: false,
+    cacheSynced: false, comboOmissions: [], skippedReason: "desired_disabled",
+  };
   const result = await deps.syncCatalogModels(config, options);
   const catalogExists = deps.existsSync(result.path);
   const catalogWritten = result.catalogWritten === true;

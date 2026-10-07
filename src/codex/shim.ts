@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED, NATIVE_CLIENT_DISABLED_MESSAGE } from "./native-client-policy";
 import { randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
@@ -2049,7 +2050,9 @@ function installCodexShimInternal(options: InstallCodexShimInternalOptions): { i
   };
 }
 
+
 export function installCodexShim(): { installed: boolean; message: string } {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { installed: false, message: NATIVE_CLIENT_DISABLED_MESSAGE };
   return installCodexShimInternal({ allowFreshInstall: true });
 }
 
@@ -2063,6 +2066,7 @@ export function autoRestoreCodexShim(options: {
   /** Narrow deterministic race seam for the guarded transaction tests. */
   beforeGuardedRefresh?: (wrapperPath: string, index: number) => void;
 }): CodexShimAutoRestoreResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { status: "ineligible" };
   const stateRead = readStateResult();
   const state = stateRead.state;
   if (!state) {
@@ -2158,6 +2162,7 @@ export function autoRestoreCodexShim(options: {
 }
 
 export function uninstallCodexShim(): { removed: boolean; message: string } {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { removed: false, message: NATIVE_CLIENT_DISABLED_MESSAGE };
   const state = readState();
   if (!state) return { removed: false, message: "Codex autostart shim is not installed." };
   const files = stateFiles(state);

@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "../native-client-policy";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
@@ -237,6 +238,7 @@ export function runCodexDebugModels(
 }
 
 export function loadBundledCodexCatalog(deps: BundledCatalogDeps = {}): ReadonlyRawCatalog | null {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return null;
   const useCache = !deps.commandCandidates && !deps.execFileSync && !deps.configDir && !deps.env;
   const execFile = deps.execFileSync ?? (execFileSync as unknown as ExecFile);
   // Prefer the single resolved runtime so sync/clamp never probe a different binary

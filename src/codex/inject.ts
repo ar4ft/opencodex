@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED, NATIVE_CLIENT_DISABLED_MESSAGE } from "./native-client-policy";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import {
   atomicWriteFile,
@@ -669,11 +670,15 @@ export interface CodexInjectResult {
   nativeSubagentDefaultsWarning?: string;
 }
 
+
 export async function injectCodexConfig(
   port: number,
   config?: OcxConfig,
   options: InjectCodexOptions = {},
 ): Promise<CodexInjectResult> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return {
+    success: true, status: "skipped", skippedReason: "desired_disabled", message: NATIVE_CLIENT_DISABLED_MESSAGE,
+  };
   // Point Codex at the unauthenticated loopback listener when it is enabled (#1102).
   //
   // Resolved here rather than at the call sites because every caller already passes the proxy
@@ -1515,6 +1520,7 @@ function restoreCodexCatalogArtifact(
 export async function restoreNativeCodexAsync(
   options: { revalidateDesiredState?: boolean } = {},
 ): Promise<CodexNativeRestoreResult> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return skippedRestoreEnvelope(true, NATIVE_CLIENT_DISABLED_MESSAGE);
   const activeProvider = currentExternalCodexModelProvider();
   if (activeProvider) {
     // External-provider courtesy: only the stale journal is removed. The
@@ -1662,6 +1668,7 @@ export async function restoreNativeCodexAsync(
 }
 
 export function restoreNativeCodex(options: { skipHistory?: boolean; revalidateDesiredState?: boolean } = {}): CodexNativeRestoreResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return skippedRestoreEnvelope(true, NATIVE_CLIENT_DISABLED_MESSAGE);
   const activeProvider = currentExternalCodexModelProvider();
   if (activeProvider) {
     removeJournal();

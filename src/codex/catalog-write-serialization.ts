@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 /**
  * K — the permanent catalog serialization primitive.
  *
@@ -53,7 +54,7 @@ declare const catalogWritePermitBrand: unique symbol;
 
 export type CatalogSerializationOutcome<T> =
   | { kind: "completed"; value: T }
-  | { kind: "unavailable"; reason: "busy" | "database" | "unsafe-path" };
+  | { kind: "unavailable"; reason: "busy" | "database" | "unsafe-path" | "disabled" };
 
 export class CatalogWritePermitRefusal extends Error {
   readonly code = "CODEX_CATALOG_WRITE_PERMIT_REFUSED";
@@ -136,6 +137,7 @@ export function withCatalogWriteSerialization<T>(
   canonicalCodexHome: string,
   write: (permit: CatalogWritePermit) => T,
 ): CatalogSerializationOutcome<T> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { kind: "unavailable", reason: "disabled" };
   let databasePath: string;
   try {
     databasePath = resolveCodexCatalogSerializationDatabasePath(
