@@ -202,6 +202,16 @@ not fabricate official-client metadata. Doctor never mutates credentials or appl
 Fetch the live model list from every configured provider and re-inject the merged catalog into Codex.
 Run it after adding a provider or to refresh available models.
 
+For GitHub Copilot, log in with `oxc login github-copilot`, then run `oxc sync` (`oxc` is an
+alias of `ocx`). Discovery uses your authenticated subscription's `/models` roster. Only rows
+enabled for its model picker with chat capabilities are exposed; explicit disabled/unconfigured
+policy states are excluded. Configured seeds and combo targets cannot add excluded IDs back into
+the discovered catalog. Copilot context and prompt limits are retained from the response.
+Existing local visibility/selection settings still apply. A failed discovery preserves the
+last-known-good catalog and reports the failure; it does not establish current entitlement.
+Without a previously verified roster, failed Copilot discovery does not advertise the static seed.
+Explicit static catalogs (`liveModels: false`) and custom models remain manual configuration.
+
 Before provider discovery or catalog/cache replacement, `ocx sync` validates that the managed
 Codex configuration can be injected. If that validation refuses the config, the command exits
 nonzero, prints the concrete reason on stderr, and leaves the existing catalog and cache unchanged.
@@ -407,6 +417,11 @@ if it is not running.
 ## Updating
 
 ### `ocx update [--tag latest|preview]`
+
+Standalone installations made by this fork's `install.sh` use `oxc update` (also available as
+`ocx update`) to download GitHub release binaries instead. They accept `--stable`,
+`--version <release-tag>`, and `--no-modify-path`; run `oxc restart` afterwards if the proxy
+was running. See [standalone installation](/getting-started/installation/#standalone-install-this-fork).
 
 Self-update opencodex from npm. Stable installs use `@latest`; preview installs stay on `@preview`
 unless you pass `--tag latest|preview`. It detects a source checkout and tells you to

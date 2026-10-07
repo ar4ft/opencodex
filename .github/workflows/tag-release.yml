@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BUN_VERSION: "1.3.14"
+  BUN_VERSION: "1.4.0"
 
 jobs:
   prepare-release:
@@ -39,12 +39,15 @@ jobs:
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "GitHub release ${tag} already exists; keeping it"
           else
+            release_flags=(--draft --verify-tag)
+            if [[ "$tag" == *-* ]]; then
+              release_flags+=(--prerelease --latest=false)
+            fi
             gh release create "$tag" \
               --target "$GITHUB_SHA" \
               --title "$tag" \
               --generate-notes \
-              --draft \
-              --verify-tag
+              "${release_flags[@]}"
           fi
 
   build-release:
@@ -151,4 +154,8 @@ jobs:
           fi
           sha256sum "${assets[@]}" | sort -k2 > checksums.txt
           gh release upload "$GITHUB_REF_NAME" "${assets[@]}" checksums.txt --clobber --repo "$GITHUB_REPOSITORY"
-          gh release edit "$GITHUB_REF_NAME" --draft=false --repo "$GITHUB_REPOSITORY"
+          release_flags=(--draft=false)
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            release_flags+=(--prerelease --latest=false)
+          fi
+          gh release edit "$GITHUB_REF_NAME" "${release_flags[@]}" --repo "$GITHUB_REPOSITORY"

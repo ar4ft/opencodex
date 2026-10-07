@@ -2689,7 +2689,8 @@ export const PROVIDER_REGISTRY: readonly ProviderRegistryEntry[] = [
     note: "Workers AI · Free tier included · Account ID required in base URL",
   },
   // FREEZE 2026-07-10: /models was auth-gated under key login. OAuth device-flow + copilot_internal
-  // exchange (issue #151) unlocks live discovery; static seed is a cold-start fallback only.
+  // exchange (issue #151) unlocks live discovery; the static seed is for explicit manual
+  // catalogs only, never evidence of subscription entitlement after a failed discovery.
   {
     id: "github-copilot",
     label: "GitHub Copilot",
@@ -2700,6 +2701,19 @@ export const PROVIDER_REGISTRY: readonly ProviderRegistryEntry[] = [
     featured: false,
     dashboardUrl: "https://github.com/settings/copilot",
     liveModels: true,
+    // The authenticated roster includes embeddings, hidden aliases and models disabled
+    // by account/organization policy. Only publish the account's usable chat picker.
+    modelDiscovery: {
+      filter: {
+        allOf: [
+          { path: ["model_picker_enabled"], equalsAny: [true] },
+          { path: ["capabilities", "type"], equalsAny: ["chat"] },
+        ],
+        noneOf: [
+          { path: ["policy", "state"], equalsAny: ["disabled", "unconfigured"], caseInsensitive: true },
+        ],
+      },
+    },
     models: ["gpt-4o", "gpt-4.1", "gpt-4.1-mini", "claude-sonnet-4", "gemini-2.5-pro", "gpt-5-mini", "gpt-5.3-codex", "gpt-5.4", "gpt-5.4-mini", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra"],
     defaultModel: "gpt-4o",
     // Copilot fronts a mixed-wire catalog: these models reject /chat/completions for

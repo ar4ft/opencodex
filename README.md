@@ -98,6 +98,24 @@ once the others are drained.
 
 ### For agents
 
+This fork also offers standalone Linux/macOS binaries (x64 and ARM64):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"       # make oxc available in this terminal
+oxc login github-copilot
+oxc sync                # refresh the enabled Copilot chat models in Codex
+oxc update              # update from this fork's GitHub releases
+```
+
+The installer needs curl and SHA-256 tooling, installs to `~/.oxc`, and configures PATH for
+`oxc`, `ocx`, and `opencodex`. No Node/npm/Bun installation is required for standalone binaries.
+Use `sh install.sh --version 0.0.9`, `--stable`, `--prefix /absolute/path`, or `--no-modify-path`
+when running a downloaded installer. Repeating the installer updates atomically and keeps
+`~/.oxc/lib/opencodex.previous`; run `oxc restart` to refresh an already running proxy.
+The default selects the newest published release, including prereleases. npm installs below
+continue using npm for updates.
+
 ```bash
 npm install -g @bitkyc08/opencodex
 ocx start     # or `ocx service`

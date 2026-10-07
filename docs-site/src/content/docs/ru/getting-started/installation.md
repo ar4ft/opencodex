@@ -3,12 +3,26 @@ title: Установка
 description: Установите прокси opencodex (ocx) и необходимые компоненты и убедитесь, что он запускается.
 ---
 
-opencodex устанавливает два эквивалентных имени команды: `ocx` и `opencodex`. Обе запускают один и
+opencodex устанавливает три эквивалентных имени команды: `oxc`, `ocx` и `opencodex`. Они запускают один и
 тот же небольшой локальный HTTP-сервер (построенный на Bun). Запросы к моделям идут к провайдеру,
 выбранному маршрутизацией; опциональные сайдкары для vision и веб-поиска также могут использовать
 ваш вход в ChatGPT, когда они нужны маршрутизируемой модели.
 
-## Предварительные требования
+## Автономная установка
+
+На Linux и macOS x64/ARM64 установщик загружает релиз GitHub этого форка, проверяет SHA-256 и настраивает PATH. Отдельная установка Node, npm или Bun не требуется.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+oxc update
+oxc restart
+```
+
+[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+
+## Требования для npm
 
 | Требование | Зачем |
 | --- | --- |

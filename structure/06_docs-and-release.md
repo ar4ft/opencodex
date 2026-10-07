@@ -159,7 +159,7 @@ Invariants:
 
 ## Release workflow
 
-Package release is npm-focused. `package.json` exposes `opencodex` and `ocx`, `prepublishOnly` runs
+Package release is npm-focused. `package.json` exposes `opencodex`, `ocx`, and `oxc`, `prepublishOnly` runs
 typecheck and GUI build, and `scripts/release.ts` now runs local typecheck, `bun test --isolate tests`, and
 `bun run privacy:scan` before the version bump, commit/push, Cross-platform CI wait, and GitHub
 Release workflow dispatch. Docs publishing is separate from npm release publishing.
@@ -273,3 +273,10 @@ git push origin <version>
 The tag workflow publishes `opencodex-{darwin,linux,windows}-{x64,arm64}` binaries and a
 `checksums.txt` asset to the matching GitHub Release. npm publishing remains controlled by the
 manual `release.yml` workflow.
+
+`scripts/install.sh` installs those standalone Linux/macOS assets under `~/.oxc`, verifies the exact
+asset's SHA-256, smoke-checks startup, and atomically replaces the executable. Its `oxc`, `ocx`, and
+`opencodex` wrappers route `update` through the fork's HTTPS installer and GitHub releases instead
+of the npm updater. PATH setup is idempotent, and the previous binary is retained. Release tags may
+be bare or `v`-prefixed and are independent of the embedded package version; CLI version metadata
+is bundled so it does not require an adjacent package.json at runtime.

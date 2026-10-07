@@ -1093,6 +1093,7 @@ export function catalogHintsFromModelsApiItem(providerName: string, item: Provid
   const metadata = plainRecord(item.metadata);
   const capabilityRecord = plainRecord(metadata?.capabilities) ?? plainRecord(item.capabilities);
   const limits = plainRecord(metadata?.limits);
+  const capabilityLimits = plainRecord(capabilityRecord?.limits);
   const contextWindow =
     positiveSafeInteger(
       limits?.max_context_length,
@@ -1101,6 +1102,7 @@ export function catalogHintsFromModelsApiItem(providerName: string, item: Provid
       item.context_size,
       item.max_model_len,
       item.max_context_length,
+      capabilityLimits?.max_context_window_tokens,
       // llama.cpp reports the served context under `meta`: `n_ctx` is what the
       // server was actually started with, `n_ctx_train` the model's trained
       // maximum. Prefer the served value — routing must not promise a window the
@@ -1109,7 +1111,7 @@ export function catalogHintsFromModelsApiItem(providerName: string, item: Provid
       plainRecord(item.meta)?.n_ctx,
       plainRecord(item.meta)?.n_ctx_train,
     );
-  const maxInputTokens = positiveSafeInteger(limits?.max_input_tokens, item.max_input_tokens);
+  const maxInputTokens = positiveSafeInteger(limits?.max_input_tokens, item.max_input_tokens, capabilityLimits?.max_prompt_tokens);
   // Some OpenAI-compatible catalogs expose the selectable ladder under
   // `reasoning_parameters.efforts` instead of the older `reasoning_efforts` key.
   // Treat both as model metadata: otherwise a valid upstream capability disappears
@@ -1248,7 +1250,11 @@ async function fetchProviderModelsWithAuth(
   // compatible provider's live /models request fails (issue #308). Keep this separate from the
   // explicit static list: `liveModels: false` + empty `models[]` intentionally publishes zero
   // rows, while a failed live discovery may degrade to the default selector.
-  const failedDiscoveryConfigured = configured.length > 0 || !prov.defaultModel || prov.adapter !== "anthropic"
+  // Copilot's static seed is not subscription evidence. A cold failed discovery must
+  // publish no inferred entitlements; a previously verified cache can still degrade.
+  const failedDiscoveryConfigured = name === "github-copilot"
+    ? []
+    : configured.length > 0 || !prov.defaultModel || prov.adapter !== "anthropic"
     ? configured
     : [{
       id: prov.defaultModel,
@@ -1319,9 +1325,9 @@ async function fetchProviderModelsWithAuth(
   }
   if (prov.authMode === "oauth" && !apiKey) {
     // No usable token (logged out, or account marked needsReauth). Still surface the
-    // configured static catalog so the GUI Models tab / rail counts are not empty —
-    // matching Cursor's !apiKey → configured degradation and fetch-failure fallback.
-    return observed(configured, "degraded");
+    // configured static catalog so the GUI Models tab / rail counts are not empty.
+    // Copilot needs positive account discovery instead of its unverified seed.
+    return observed(name === "github-copilot" ? [] : configured, "degraded");
   }
   const cloudCodeAssist = effectiveGoogleMode(name, prov) === "cloud-code-assist";
   const project = prov.project ?? auth.oauthProjectId;
@@ -1506,7 +1512,7 @@ async function fetchProviderModelsWithAuth(
       );
     }
     if (!setCached(name, forCache, Date.now(), cacheGeneration)) {
-      return observed(withConfiguredRetention(configured), "degraded");
+      return observed(withConfiguredRetention(failedDiscoveryConfigured), "degraded");
     }
     markProviderDiscoveryOk(name, liveModelCount);
     return observed(returned, "authoritative");
@@ -1590,6 +1596,12 @@ export function mergeConfiguredModelsIntoLiveCatalog(opts: {
   const droppedConfiguredIds: string[] = [];
   for (const candidate of configured) {
     if (present.has(candidate.id)) continue;
+    // Copilot's account-scoped picker is authoritative. A configured alias or combo
+    // target must not resurrect a model filtered out by subscription/policy checks.
+    if (name === "github-copilot" && prov.liveModels !== false) {
+      droppedConfiguredIds.push(candidate.id);
+      continue;
+    }
     const dated = out.find(live => isDatedVariantId(live.id, candidate.id));
     if (dated) {
       out.push(applyProviderConfigHints(name, prov, { ...dated, id: candidate.id }, contextCap));

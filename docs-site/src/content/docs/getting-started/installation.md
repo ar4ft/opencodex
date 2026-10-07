@@ -3,11 +3,45 @@ title: Installation
 description: Install the opencodex (ocx) proxy, its prerequisites, and verify it runs.
 ---
 
-opencodex installs two equivalent command names, `ocx` and `opencodex`. Both launch the same small
+opencodex installs equivalent command names, `oxc`, `ocx`, and `opencodex`. They launch the same small
 local HTTP server (built on Bun). Model requests go to the provider selected by routing; optional
 vision and web-search sidecars can also use your ChatGPT login when a routed model needs them.
 
-## Prerequisites
+## Standalone install (this fork)
+
+Linux and macOS x64/ARM64 users can install this fork's GitHub release binary without Node,
+npm, or a separately installed Bun runtime:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+```
+
+The installer verifies `checksums.txt`, runs a startup check, installs under `~/.oxc`, and adds
+that directory's `bin` to your shell profile. Open a new terminal or source the displayed `env`
+file to use the commands immediately. `oxc`, `ocx`, and `opencodex` are equivalent aliases.
+Requires curl and `sha256sum` or `shasum`. The default selects the newest published release,
+including prereleases; macOS signing/notarization is not verified by the installer.
+
+Download the script to use `--version 0.0.9` (bare and `v`-prefixed tags work), `--stable`,
+`--prefix /absolute/path`, or `--no-modify-path`. `OXC_INSTALL_DIR` and `OXC_VERSION` supply
+the default prefix and version. `--stable` refuses prereleases and fails if release classification
+is unavailable.
+
+```sh
+oxc update                     # latest GitHub release from ar4ft/opencodex
+oxc update --stable             # production releases only
+oxc update --version 0.0.9      # pin a release
+oxc restart                    # refresh a proxy that was running during the update
+```
+
+Updates download the current installer over HTTPS from this fork. They verify and atomically
+replace the binary, retain `lib/opencodex.previous`, and preserve your application configuration.
+An already running proxy keeps its current process until restarted. Re-running the installer also
+updates. Standalone binaries use this update path; npm installs use the npm updater below.
+
+## npm prerequisites
 
 | Requirement | Why |
 | --- | --- |

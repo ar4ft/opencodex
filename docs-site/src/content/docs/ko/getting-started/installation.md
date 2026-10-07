@@ -3,11 +3,25 @@ title: 설치
 description: opencodex(ocx) 프록시와 사전 요구 사항을 설치하고, 정상 실행되는지 확인합니다.
 ---
 
-opencodex를 설치하면 같은 실행 파일을 가리키는 `ocx`와 `opencodex` 명령이 함께 제공됩니다.
+opencodex를 설치하면 같은 실행 파일을 가리키는 `oxc`, `ocx`, `opencodex` 명령이 함께 제공됩니다.
 둘 다 Bun 기반의 작은 로컬 HTTP 서버를 실행합니다. 모델 요청은 라우팅으로 선택된 프로바이더에
 전달되며, 필요할 때 vision 및 웹 검색 sidecar가 ChatGPT 로그인을 사용할 수도 있습니다.
 
-## 사전 요구 사항
+## 독립 실행형 설치
+
+Linux 및 macOS x64/ARM64에서 이 설치 프로그램은 포크의 GitHub 릴리스를 설치하고 SHA-256을 검증하며 PATH를 설정합니다. Node, npm, Bun을 별도로 설치할 필요가 없습니다.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+oxc update
+oxc restart
+```
+
+[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+
+## npm 사전 요구 사항
 
 | 요구 사항 | 이유 |
 | --- | --- |

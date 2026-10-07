@@ -3,13 +3,26 @@ title: Kurulum
 description: opencodex (ocx) proxy'sini ve ön koşullarını kurun, çalıştığını doğrulayın.
 ---
 
-opencodex, `ocx` ve `opencodex` olmak üzere iki eşdeğer komut adı kurar. Her
-ikisi de aynı küçük yerel HTTP sunucusunu (Bun üzerinde oluşturulmuştur)
+opencodex, `oxc`, `ocx` ve `opencodex` olmak üzere üç eşdeğer komut adı kurar. Hepsi aynı küçük yerel HTTP sunucusunu (Bun üzerinde oluşturulmuştur)
 başlatır. Model istekleri yönlendirme tarafından seçilen sağlayıcıya gider;
 isteğe bağlı vizyon ve web araması sidecar'ları, yönlendirilen bir model ihtiyaç
 duyduğunda ChatGPT oturumunuzu da kullanabilir.
 
-## Ön Koşullar
+## Bağımsız kurulum
+
+Linux ve macOS x64/ARM64 için bu yükleyici fork sürümünü indirir, SHA-256 değerini doğrular ve PATH ayarını yapar. Node, npm veya Bun kurulumu gerekmez.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+oxc update
+oxc restart
+```
+
+[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+
+## npm Ön Koşulları
 
 | Gereksinim | Neden |
 | --- | --- |
@@ -38,7 +51,7 @@ sudo npm install -g --allow-scripts=bun @bitkyc08/opencodex
 ```
 :::
 
-Her iki komut takma adının da `PATH` üzerinde olduğunu doğrulayın:
+Komut takma adlarının da `PATH` üzerinde olduğunu doğrulayın:
 
 ```bash
 ocx --version

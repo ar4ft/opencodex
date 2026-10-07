@@ -66,6 +66,13 @@ deleting, or editing a provider's shape clears that per-provider cache; a disabl
 deliberately does not, because a disabled provider is already excluded from the catalog gather
 instead. Codex's own `models_cache.json` is a different cache, invalidated by catalog refresh.
 
+GitHub Copilot live discovery uses the authenticated account's chat picker: `model_picker_enabled`
+must be true, `capabilities.type` must be `chat`, and disabled/unconfigured policy rows are excluded.
+Successful discovery is authoritative even when empty. Configured seeds, dated aliases, and combo
+retention cannot add omitted IDs back. Failed discovery may retain a verified in-memory roster but
+cannot infer subscription access from a cold static seed. Explicit `liveModels: false` remains the
+manual static-catalog path.
+
 ### Windows request-path catalog-state discovery
 
 [Decision Log]

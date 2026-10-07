@@ -3,11 +3,25 @@ title: インストール
 description: opencodex(ocx)プロキシと前提条件をインストールし、正常に実行できるか確認します。
 ---
 
-opencodex をインストールすると同じ実行ファイルを指す `ocx` と `opencodex` コマンドが一緒に提供されます。
+opencodex をインストールすると同じ実行ファイルを指す `oxc`、`ocx`、`opencodex` コマンドが一緒に提供されます。
 どちらも Bun ベースの小さなローカル HTTP サーバーを実行します。モデルリクエストはルーティングで選ばれたプロバイダーに
 転送され、必要に応じて vision とウェブ検索のサイドカーが ChatGPT ログインを使うこともあります。
 
-## 前提条件
+## スタンドアロンのインストール
+
+Linux と macOS の x64/ARM64 向けに、このフォークの GitHub リリースをインストールし、SHA-256 を検証して PATH を設定します。Node、npm、Bun の別途インストールは不要です。
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+oxc update
+oxc restart
+```
+
+[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+
+## npm の前提条件
 
 | 要件 | 理由 |
  --- | --- |

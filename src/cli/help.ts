@@ -1,14 +1,8 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import packageInfo from "../../package.json";
 import { findCommand } from "./registry";
 
-const repoRoot = dirname(fileURLToPath(new URL("../../package.json", import.meta.url)));
-
 function packageVersion(): string {
-  const raw = readFileSync(join(repoRoot, "package.json"), "utf8");
-  const parsed = JSON.parse(raw) as { version?: unknown };
-  return typeof parsed.version === "string" ? parsed.version : "unknown";
+  return packageInfo.version;
 }
 
 export function printVersion(): void {

@@ -3,11 +3,25 @@ title: 安装
 description: 安装 opencodex(ocx)代理及其前置条件,并验证它能够运行。
 ---
 
-安装 opencodex 后会得到 `ocx` 和 `opencodex` 两个等价命令，它们都指向同一个基于 Bun 的
+安装 opencodex 后会得到 `oxc`、`ocx` 和 `opencodex` 三个等价命令，它们都指向同一个基于 Bun 的
 小型本地 HTTP 服务器。模型请求会发往路由所选的 provider；当已路由模型需要时，可选的
 vision 和网络搜索 sidecar 也可以使用你的 ChatGPT 登录凭据。
 
-## 前置条件
+## 独立安装
+
+在 Linux 和 macOS x64/ARM64 上，安装器下载此分支的 GitHub 发布版本，验证 SHA-256 并设置 PATH。无需单独安装 Node、npm 或 Bun。
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+oxc update
+oxc restart
+```
+
+[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+
+## npm 前置条件
 
 | 要求 | 原因 |
 | --- | --- |
@@ -35,7 +49,7 @@ sudo npm install -g --allow-scripts=bun @bitkyc08/opencodex
 ```
 :::
 
-确认两个命令都已加入 `PATH`：
+确认命令都已加入 `PATH`：
 
 ```bash
 ocx --version

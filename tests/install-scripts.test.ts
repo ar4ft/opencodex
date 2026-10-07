@@ -40,6 +40,7 @@ describe("install scripts", () => {
   test("npm package main is a Node-safe wrapper while Bun keeps the TypeScript API", async () => {
     const pkg = JSON.parse(await readText("package.json")) as {
       main?: string;
+      bin?: Record<string, string>;
       exports?: { "."?: { bun?: string; default?: string } };
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
@@ -48,6 +49,7 @@ describe("install scripts", () => {
     };
 
     expect(pkg.main).toBe("./bin/package-main.mjs");
+    expect(pkg.bin?.oxc).toBe("./bin/ocx.mjs");
     expect(pkg.exports?.["."]?.bun).toBe("./src/index.ts");
     expect(pkg.exports?.["."]?.default).toBe("./bin/package-main.mjs");
     expect(pkg.dependencies?.zod).toBe("4.4.3");
@@ -89,13 +91,14 @@ describe("install scripts", () => {
     expect(guiReadme).not.toContain("This template provides a minimal setup");
   });
 
-  test("POSIX installer matches the Node launcher prerequisite", async () => {
+  test("POSIX installer uses the fork's standalone releases and configures oxc", async () => {
     const script = await readText("scripts/install.sh");
 
-    expect(script).toContain("Node.js 18+ is required");
-    expect(script).toContain("npm install -g @bitkyc08/opencodex");
-    expect(script).toContain("command -v ocx");
-    expect(script).toContain("ocx help");
+    expect(script).toContain("https://api.github.com/repos/ar4ft/opencodex/releases");
+    expect(script).toContain("checksums.txt");
+    expect(script).toContain('oxc_alias in oxc ocx opencodex');
+    expect(script).toContain('"$oxc_tmp/opencodex-next" help');
+    expect(script).not.toContain("npm install -g");
     expect(script).not.toContain("bun install -g @bitkyc08/opencodex");
     expect(script).not.toContain("bun.sh/install");
   });

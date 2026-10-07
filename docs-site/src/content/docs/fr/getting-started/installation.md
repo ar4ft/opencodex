@@ -3,12 +3,26 @@ title: Installation
 description: Installez le proxy opencodex (ocx), ses prérequis et vérifiez qu'il fonctionne.
 ---
 
-opencodex installe deux commandes équivalentes, `ocx` et `opencodex`. Toutes deux lancent le même petit
+opencodex installe trois commandes équivalentes, `oxc`, `ocx` et `opencodex`. Elles lancent le même petit
 serveur HTTP local, fondé sur Bun. Les requêtes de modèles sont envoyées au fournisseur choisi par le
 routage. Les services auxiliaires facultatifs de vision et de recherche web peuvent également utiliser votre connexion
 ChatGPT lorsqu’un modèle routé en a besoin.
 
-## Prérequis
+## Installation autonome
+
+Sur Linux et macOS x64/ARM64, cet installateur utilise les versions GitHub de ce fork, vérifie SHA-256 et configure PATH. Node, npm et Bun ne sont pas requis.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh | sh
+. "$HOME/.oxc/env"
+oxc --version
+oxc update
+oxc restart
+```
+
+[Options: --version, --stable, --prefix, --no-modify-path](/getting-started/installation/#standalone-install-this-fork)
+
+## Prérequis npm
 
 | Exigence | Pourquoi |
 | --- | --- |
@@ -37,7 +51,7 @@ sudo npm install -g --allow-scripts=bun @bitkyc08/opencodex
 ```
 :::
 
-Vérifiez que les deux alias de commande sont sur votre `PATH` :
+Vérifiez que les alias de commande sont sur votre `PATH` :
 
 ```bash
 ocx --version
