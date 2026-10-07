@@ -1,3 +1,4 @@
+import type { CursorForegroundShellOwner } from "./native-foreground-shell";
 import { createHash } from "node:crypto";
 import { enforceAppOwnedMemoryBudget } from "../../lib/app-owned-memory";
 import { create } from "@bufbuild/protobuf";
@@ -53,6 +54,10 @@ import {
 import { clientBytes, execBytes, execStreamCloseBytes, execThrowBytes } from "./native-exec-common";
 import type { McpToolDefinition } from "./gen/agent_pb";
 import { OCX_RESPONSES_TOOL_PROVIDER } from "./tool-definitions";
+import { CODEX_UNIFIED_EXEC_TOOL, cursorRequestHasExecutionPath, cursorRequestHasShellAlias, cursorRequestUsesCodeMode, cursorToolWireName } from "./tool-naming";
+import { CODE_MODE_RESULT_ECHO_SENTENCE } from "../exec-tool-result-normalize";
+import type { OcxTool } from "../../types";
+import { cursorPlainNativeExecFallback, cursorPlainNativeExecRedirectHint, cursorUsesPlainToolWording } from "./tool-wording";
 
 export type CursorNativeExecDeps = CursorNativeNetworkDeps & CursorNativeToolDeps;
 
@@ -64,6 +69,8 @@ export type CursorNativeExecDeps = CursorNativeNetworkDeps & CursorNativeToolDep
 export interface CursorNativeExecContext extends CursorNativeExecDeps {
   /** Stable owner for background shells created by this transport session. */
   sessionId?: string;
+  foregroundShellOwner?: CursorForegroundShellOwner;
+  signal?: AbortSignal;
   mcpToolDefs?: McpToolDefinition[];
   clientToolDefs?: McpToolDefinition[];
   /** Unsafe opt-in escape hatch for Cursor server-driven local fs/shell/fetch execution. */
@@ -72,6 +79,66 @@ export interface CursorNativeExecContext extends CursorNativeExecDeps {
   rejectNativeFileMutations?: boolean;
   /** The synthetic exact-match edit tools (edit_file / multi_edit) are advertised this request. */
   structuredEditAvailable?: boolean;
+  /** Catalog-aware redirect text for denied native fs/shell attempts (undefined = default bridge wording). */
+  nativeExecRedirectHint?: string;
+  /** Claude-family Cursor targets receive factual redirects, without narration restrictions. */
+  plainToolWording?: boolean;
+}
+
+const REDIRECT_HINT_MAX_TOOLS = 16;
+
+/**
+ * Catalog-aware redirect for denied Cursor-native fs/shell/fetch attempts. Code mode must point
+ * inside freeform `exec`, since the default refusal names top-level shell tools it does not expose.
+ * When no execution path exists, name the actual client and configured MCP tools instead and stay
+ * neutral about their capabilities, so a listed file/search/fetch tool is never contradicted.
+ */
+export function cursorNativeExecRedirectHint(
+  tools: readonly Pick<OcxTool, "namespace" | "name" | "freeform">[] | undefined,
+  mcpToolDefs: readonly Pick<McpToolDefinition, "name" | "providerIdentifier">[] = [],
+  modelId?: string,
+): string | undefined {
+  if (cursorUsesPlainToolWording(modelId)) return cursorPlainNativeExecRedirectHint(tools, mcpToolDefs);
+  const clientTools = tools ?? [];
+  if (cursorRequestHasShellAlias(clientTools)) return undefined;
+  // Code mode (freeform unified `exec`, no bare shell bridge): the default bridge wording names
+  // top-level shell tools this catalog does not expose, so the model probes for tools that cannot
+  // exist. Redirect INSIDE `exec` instead — shell, file, search, and fetch are nested helpers of
+  // the code cell. The caller supplies the active-turn catalog, so no tool_choice re-filter here.
+  if (cursorRequestUsesCodeMode(clientTools)) return cursorCodeModeExecRedirectHint();
+  if (cursorRequestHasExecutionPath(clientTools)) return undefined;
+  // Client tools are advertised under OCX_RESPONSES_TOOL_PROVIDER, so the harness shows them as
+  // `mcp_<provider>_<wire name>`; configured MCP servers are advertised under their own provider id.
+  // A request with no client tools but configured MCP tools still gets those named; a request that
+  // advertises nothing at all keeps the default bridge wording.
+  const names = [...new Set([
+    ...clientTools.map(tool => cursorToolWireName(tool, clientTools)),
+    ...mcpToolDefs.map(def => `mcp_${def.providerIdentifier}_${def.name}`),
+  ])];
+  if (names.length === 0) return undefined;
+  const shown = names.slice(0, REDIRECT_HINT_MAX_TOOLS).map(name => `\`${name}\``).join(", ");
+  const more = names.length > REDIRECT_HINT_MAX_TOOLS ? ` (+${names.length - REDIRECT_HINT_MAX_TOOLS} more)` : "";
+  return (
+    `Re-issue this operation NOW through one of the tools listed in this request's catalog: ${shown}${more} `
+    + `(the harness displays a \`${OCX_RESPONSES_TOOL_PROVIDER}\` entry as \`mcp_${OCX_RESPONSES_TOOL_PROVIDER}_<name>\`; that is the same tool). `
+    + "Cursor-native Read/Glob/Grep/LS/Shell/Write/Fetch are not part of this request's catalog; do not retry them. "
+    + "Pick the listed tool that fits the operation — a listed file, search, or fetch tool if there is one, otherwise the listed tool that delegates work to a worker agent. "
+    + "Do NOT narrate this redirect, do NOT comment on tool availability, and do NOT re-announce the task — just make the catalog tool call."
+  );
+}
+
+/**
+ * Code-mode half of the redirect above: the only execution surface is the freeform `exec` cell,
+ * so the denial names the nested helpers instead of the missing flat bridge. The result-echo
+ * sentence is the shared canonical wording tool-guidance emits for the same isolate.
+ */
+function cursorCodeModeExecRedirectHint(): string {
+  return (
+    `Re-issue this operation NOW through the \`${CODEX_UNIFIED_EXEC_TOOL}\` tool: this turn uses Codex code mode, so \`${CODEX_UNIFIED_EXEC_TOOL}\` takes a JavaScript body and shell, file, search, and fetch are nested helpers called INSIDE that body as \`await tools.<name>(...)\`, for example \`text(await tools.exec_command({cmd: "ls"}))\`. `
+    + "Cursor-native Read/Glob/Grep/LS/Shell/Write/Fetch are not part of this request's catalog; do not retry them, and do not call `shell_command` or `exec_command` at the top level here — code mode exposes no bare shell bridge, only the nested helpers. Every other tool this turn lists remains callable at the top level as usual. "
+    + CODE_MODE_RESULT_ECHO_SENTENCE + " "
+    + `Do NOT narrate this redirect, do NOT comment on tool availability, and do NOT re-announce the task — just make the \`${CODEX_UNIFIED_EXEC_TOOL}\` call.`
+  );
 }
 
 export function cursorUnsafeNativeLocalExecEnabled(input: Pick<CursorNativeExecContext, "unsafeAllowNativeLocalExec"> = {}): boolean {
@@ -140,6 +207,10 @@ let blobOldestEvictableAt: number | null = null;
 let rejectedEntryTooLarge = 0;
 let rejectedPinnedSaturation = 0;
 let blobExpiryAccountingTimer: ReturnType<typeof setTimeout> | undefined;
+/** Earliest unpinned storedAt+ttl; skip the write-time TTL walk while this is in the future. */
+let blobNextUnpinnedExpiryAt: number | null = null;
+/** Earliest unpinned remote expiry strictly in the future; drives the single reclassify timer. */
+let blobNextRemoteExpiryAt: number | null = null;
 
 function isExpired(entry: CursorBlobEntry, now: number): boolean {
   return now - entry.storedAt >= blobLimits.ttlMs;
@@ -157,6 +228,8 @@ function recomputeBlobClassAccounting(): void {
   let pinnedBytes = 0;
   let evictableBytes = 0;
   let oldestAt: number | null = null;
+  let nextUnpinnedExpiry = Number.POSITIVE_INFINITY;
+  let nextRemoteExpiry = Number.POSITIVE_INFINITY;
   for (const [k, entry] of blobs) {
     const requestPinned = entry.requestPins.size > 0;
     const provenancePinned = entry.provenance === "remote-setBlobArgs" && !isExpired(entry, now);
@@ -169,11 +242,20 @@ function recomputeBlobClassAccounting(): void {
       evictableBytes += entry.sizeBytes + k.length;
       oldestAt = oldestAt === null ? entry.storedAt : Math.min(oldestAt, entry.storedAt);
     }
+    if (!requestPinned) {
+      const expiresAt = entry.storedAt + blobLimits.ttlMs;
+      nextUnpinnedExpiry = Math.min(nextUnpinnedExpiry, expiresAt);
+      if (entry.provenance === "remote-setBlobArgs" && expiresAt > now) {
+        nextRemoteExpiry = Math.min(nextRemoteExpiry, expiresAt);
+      }
+    }
   }
   blobLocalBytes = localBytes;
   blobPinnedBytes = pinnedBytes;
   blobEvictableBytes = evictableBytes;
   blobOldestEvictableAt = oldestAt;
+  blobNextUnpinnedExpiryAt = Number.isFinite(nextUnpinnedExpiry) ? nextUnpinnedExpiry : null;
+  blobNextRemoteExpiryAt = Number.isFinite(nextRemoteExpiry) ? nextRemoteExpiry : null;
   scheduleBlobExpiryAccounting(now);
 }
 
@@ -185,18 +267,48 @@ function reconcileBlobClassAccountingAndEnforce(): void {
 function scheduleBlobExpiryAccounting(now: number): void {
   if (blobExpiryAccountingTimer) clearTimeout(blobExpiryAccountingTimer);
   blobExpiryAccountingTimer = undefined;
-  let nextExpiry = Number.POSITIVE_INFINITY;
-  for (const entry of blobs.values()) {
-    if (entry.provenance !== "remote-setBlobArgs" || entry.requestPins.size > 0) continue;
-    const expiresAt = entry.storedAt + blobLimits.ttlMs;
-    if (expiresAt > now) nextExpiry = Math.min(nextExpiry, expiresAt);
-  }
-  if (!Number.isFinite(nextExpiry)) return;
+  const nextExpiry = blobNextRemoteExpiryAt;
+  if (nextExpiry === null || nextExpiry <= now || !Number.isFinite(nextExpiry)) return;
   blobExpiryAccountingTimer = setTimeout(() => {
     blobExpiryAccountingTimer = undefined;
     reconcileBlobClassAccountingAndEnforce();
   }, Math.max(0, nextExpiry - now));
   blobExpiryAccountingTimer.unref?.();
+}
+
+/**
+ * O(1) class/timer update for a newly admitted key when no other row changed.
+ * Full-map recompute stays on replacement, eviction, pin changes, and TTL fire —
+ * the 4096-entry ceiling fill must not walk the store on every remote admit.
+ */
+function accountAdmittedBlob(k: string, entry: CursorBlobEntry, now: number): void {
+  const requestPinned = entry.requestPins.size > 0;
+  const expired = isExpired(entry, now);
+  const provenancePinned = entry.provenance === "remote-setBlobArgs" && !expired;
+  const logicalBytes = entry.sizeBytes + k.length;
+  if (entry.provenance === "local-regenerated") blobLocalBytes += entry.sizeBytes;
+  if (requestPinned || provenancePinned) blobPinnedBytes += logicalBytes;
+  if (!requestPinned && (entry.provenance === "local-regenerated" || expired)) {
+    blobEvictableBytes += logicalBytes;
+    blobOldestEvictableAt = blobOldestEvictableAt === null ? entry.storedAt : Math.min(blobOldestEvictableAt, entry.storedAt);
+  }
+  if (requestPinned) return;
+  const expiresAt = entry.storedAt + blobLimits.ttlMs;
+  blobNextUnpinnedExpiryAt = blobNextUnpinnedExpiryAt === null
+    ? expiresAt
+    : Math.min(blobNextUnpinnedExpiryAt, expiresAt);
+  if (entry.provenance !== "remote-setBlobArgs" || expiresAt <= now) return;
+  const previousRemoteExpiry = blobNextRemoteExpiryAt;
+  blobNextRemoteExpiryAt = previousRemoteExpiry === null
+    ? expiresAt
+    : Math.min(previousRemoteExpiry, expiresAt);
+  if (
+    !blobExpiryAccountingTimer
+    || previousRemoteExpiry === null
+    || expiresAt < previousRemoteExpiry
+  ) {
+    scheduleBlobExpiryAccounting(now);
+  }
 }
 
 function deleteBlob(k: string, recompute = true): number {
@@ -246,9 +358,11 @@ function setBlob(
   }
 
   const removals = new Set<string>();
-  for (const [candidateKey, entry] of blobs) {
-    if (candidateKey === k && sameData) continue;
-    if (entry.requestPins.size === 0 && isExpired(entry, now)) removals.add(candidateKey);
+  if (blobNextUnpinnedExpiryAt !== null && now >= blobNextUnpinnedExpiryAt) {
+    for (const [candidateKey, entry] of blobs) {
+      if (candidateKey === k && sameData) continue;
+      if (entry.requestPins.size === 0 && isExpired(entry, now)) removals.add(candidateKey);
+    }
   }
 
   const existingRemovedByTtl = existing !== undefined && removals.has(k);
@@ -326,7 +440,12 @@ function setBlob(
   blobBytes += entry.sizeBytes;
   blobKeyBytes += k.length;
   for (const scope of entry.requestPins) blobRequestScopes.get(scope)?.keys.add(k);
-  reconcileBlobClassAccountingAndEnforce();
+  if (removals.size > 0 || existing !== undefined) {
+    reconcileBlobClassAccountingAndEnforce();
+  } else {
+    accountAdmittedBlob(k, entry, now);
+    enforceAppOwnedMemoryBudget();
+  }
   return { admitted: true, replaced: existing !== undefined };
 }
 
@@ -401,6 +520,47 @@ export function storeCursorBlob(data: Uint8Array, requestScope?: CursorBlobReque
   const admission = setBlob(key(blobId), data, "local-regenerated", requestScope);
   if (!admission.admitted) throw new CursorBlobAdmissionError(admission.reason);
   return blobId;
+}
+
+/**
+ * Stored byte length of one blob, or null when it is not in the store.
+ *
+ * Size only, never content: the envelope guard needs to measure the FINAL root set, which mixes
+ * roots minted this turn with roots carried inside a checkpoint. Reading them back through a
+ * hydration path would both defeat the request-scope sealing and log served bytes for a request
+ * that may never be sent.
+ */
+export function cursorBlobByteLength(blobId: Uint8Array): number | null {
+  const entry = blobs.get(key(blobId));
+  return entry ? entry.data.byteLength : null;
+}
+
+/** Read one stored root for usage estimation without hydration, pin release, or served-byte accounting. */
+export function cursorBlobTextForEstimate(blobId: Uint8Array): string | null {
+  if (!(blobId instanceof Uint8Array) || blobId.byteLength === 0) return null;
+  try {
+    const entry = blobs.get(key(blobId));
+    if (!entry) return null;
+    return new TextDecoder("utf-8", { fatal: true }).decode(entry.data);
+  } catch {
+    debugProviderDiagnostic("cursor", "blob-estimate-unreadable", {
+      bytes: blobId.byteLength,
+    });
+    return null;
+  }
+}
+
+/**
+ * Serve-time integrity for content-addressed blobs (devlog 260826_cursor_responses_gap 080):
+ * a raw 32-byte blob id IS the SHA-256 of its bytes, so served data whose digest mismatches
+ * the id means in-store corruption — the splice signature behind garbled replayed tool
+ * results. Ids longer than 32 bytes (digested-key namespace) and server-minted ids are not
+ * content-addressed and always pass.
+ */
+export function cursorBlobServeIntegrityOk(blobId: Uint8Array, served: Uint8Array): boolean {
+  if (blobId.byteLength !== 32) return true;
+  const digest = createHash("sha256").update(served).digest();
+  return digest.equals(Buffer.from(blobId));
 }
 
 /**
@@ -549,6 +709,9 @@ export function cursorBlobStoreDebugSnapshotForTests(): Array<{
 
 export async function handleCursorNativeExec(execMsg: ExecServerMessage, deps: CursorNativeExecContext = {}): Promise<Uint8Array[]> {
   const execCase = execMsg.message.case;
+  if (deps.plainToolWording && !deps.nativeExecRedirectHint) {
+    deps = { ...deps, nativeExecRedirectHint: cursorPlainNativeExecFallback([...(deps.clientToolDefs ?? []), ...(deps.mcpToolDefs ?? [])]) };
+  }
   if (execCase === "requestContextArgs") {
     const tools = [...(deps.mcpToolDefs ?? []), ...(deps.clientToolDefs ?? [])];
     return [execBytes(execMsg, "requestContextResult", create(RequestContextResultSchema, {
@@ -556,24 +719,24 @@ export async function handleCursorNativeExec(execMsg: ExecServerMessage, deps: C
     }))];
   }
   if (!cursorUnsafeNativeLocalExecEnabled(deps)) {
-    if (execCase === "readArgs") return [rejectReadExecForPolicy(execMsg)];
-    if (execCase === "writeArgs") return [rejectWriteExecForPolicy(execMsg)];
-    if (execCase === "deleteArgs") return [rejectDeleteExecForPolicy(execMsg)];
-    if (execCase === "lsArgs") return [rejectLsExecForPolicy(execMsg)];
-    if (execCase === "grepArgs") return [rejectGrepExecForPolicy(execMsg)];
-    if (execCase === "shellArgs") return [rejectShellExecForPolicy(execMsg)];
-    if (execCase === "shellStreamArgs") return rejectShellStreamExecForPolicy(execMsg);
-    if (execCase === "backgroundShellSpawnArgs") return [rejectBackgroundShellSpawnExecForPolicy(execMsg)];
-    if (execCase === "writeShellStdinArgs") return [rejectWriteShellStdinExecForPolicy(execMsg)];
-    if (execCase === "fetchArgs") return [rejectFetchExecForPolicy(execMsg)];
+    if (execCase === "readArgs") return [rejectReadExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
+    if (execCase === "writeArgs") return [rejectWriteExecForPolicy(execMsg, deps.nativeExecRedirectHint, deps.plainToolWording)];
+    if (execCase === "deleteArgs") return [rejectDeleteExecForPolicy(execMsg, deps.nativeExecRedirectHint, deps.plainToolWording)];
+    if (execCase === "lsArgs") return [rejectLsExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
+    if (execCase === "grepArgs") return [rejectGrepExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
+    if (execCase === "shellArgs") return [rejectShellExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
+    if (execCase === "shellStreamArgs") return rejectShellStreamExecForPolicy(execMsg, deps.nativeExecRedirectHint);
+    if (execCase === "backgroundShellSpawnArgs") return [rejectBackgroundShellSpawnExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
+    if (execCase === "writeShellStdinArgs") return [rejectWriteShellStdinExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
+    if (execCase === "fetchArgs") return [rejectFetchExecForPolicy(execMsg, deps.nativeExecRedirectHint)];
   }
   if (execCase === "readArgs") return [readExec(execMsg)];
-  if (execCase === "writeArgs") return [deps.rejectNativeFileMutations ? rejectWriteExecForApplyPatch(execMsg, deps.structuredEditAvailable === true) : writeExec(execMsg)];
-  if (execCase === "deleteArgs") return [deps.rejectNativeFileMutations ? rejectDeleteExecForApplyPatch(execMsg, deps.structuredEditAvailable === true) : deleteExec(execMsg)];
+  if (execCase === "writeArgs") return [deps.rejectNativeFileMutations ? rejectWriteExecForApplyPatch(execMsg, deps.structuredEditAvailable === true, deps.plainToolWording) : writeExec(execMsg)];
+  if (execCase === "deleteArgs") return [deps.rejectNativeFileMutations ? rejectDeleteExecForApplyPatch(execMsg, deps.structuredEditAvailable === true, deps.plainToolWording) : deleteExec(execMsg)];
   if (execCase === "lsArgs") return [lsExec(execMsg)];
   if (execCase === "grepArgs") return [grepExec(execMsg)];
-  if (execCase === "shellArgs") return [shellExec(execMsg)];
-  if (execCase === "shellStreamArgs") return shellStreamExec(execMsg);
+  if (execCase === "shellArgs") return [shellExec(execMsg, deps.nativeExecRedirectHint)];
+  if (execCase === "shellStreamArgs") return shellStreamExec(execMsg, deps.foregroundShellOwner, deps.signal, deps.nativeExecRedirectHint);
   if (execCase === "backgroundShellSpawnArgs") return [backgroundShellSpawnExec(execMsg, deps.sessionId ?? "")];
   if (execCase === "writeShellStdinArgs") return [writeShellStdinExec(execMsg, deps.sessionId ?? "")];
   if (execCase === "fetchArgs") return [await fetchExec(execMsg, deps)];
@@ -622,6 +785,13 @@ export function handleCursorNativeKv(
   if (kvMsg.message.case === "getBlobArgs") {
     const blobKey = key(kvMsg.message.value.blobId);
     const blobData = getBlob(blobKey);
+    // Splice-class corruption guard (devlog 260826 080): diagnostic only, never blocks serving.
+    if (blobData && !cursorBlobServeIntegrityOk(kvMsg.message.value.blobId, blobData)) {
+      debugProviderDiagnostic("cursor", "blob-integrity-mismatch", {
+        blobKey: blobKey.slice(0, 18),
+        servedBytes: blobData.byteLength,
+      });
+    }
     if (blobData && requestScope && blobRequestScopes.get(requestScope)?.kind === "request") {
       releaseHydratedBlob(blobKey, requestScope);
     }

@@ -1,6 +1,7 @@
 import { IconLock } from "../icons";
 import { useT } from "../i18n/shared";
 import { LoginHint } from "./login-url-block";
+import type { BrowserLaunch } from "../oauth-browser-launch";
 import { OpenBrowserPrefToggle } from "./open-browser-pref-toggle";
 import type { CatalogPreset } from "./provider-catalog/provider-presets";
 
@@ -13,11 +14,13 @@ export function AddProviderOAuthPane({
   oauthUrl,
   oauthDeviceCode,
   oauthInstructions,
+  oauthBrowserLaunch,
   manualCode,
   manualCodeBusy,
   manualCodeMsg,
   manualCodeOk,
   onRequestLogin,
+  onCancelLogin,
   onUseApiKeyInstead,
   onManualCodeChange,
   onSubmitManualCode,
@@ -31,11 +34,13 @@ export function AddProviderOAuthPane({
   oauthUrl: string;
   oauthDeviceCode?: string;
   oauthInstructions?: string;
+  oauthBrowserLaunch?: BrowserLaunch;
   manualCode: string;
   manualCodeBusy: boolean;
   manualCodeMsg: string;
   manualCodeOk: boolean;
   onRequestLogin: (providerId: string) => void;
+  onCancelLogin: (providerId: string) => void;
   onUseApiKeyInstead: () => void;
   onManualCodeChange: (value: string) => void;
   onSubmitManualCode: (providerId: string) => void;
@@ -66,7 +71,7 @@ export function AddProviderOAuthPane({
       )}
       {oauthBusy && (
         <LoginHint
-          hint={{ url: oauthUrl, deviceCode: oauthDeviceCode, instructions: oauthInstructions }}
+          hint={{ url: oauthUrl, deviceCode: oauthDeviceCode, instructions: oauthInstructions, browserLaunch: oauthBrowserLaunch }}
           paste={{
             value: manualCode,
             busy: manualCodeBusy,
@@ -83,6 +88,11 @@ export function AddProviderOAuthPane({
           {t("modal.useApiKeyInstead")}
         </button>
         <div style={{ flex: 1 }} />
+        {oauthBusy && preset.oauthProvider && (
+          <button type="button" className="btn btn-ghost" onClick={() => onCancelLogin(preset.oauthProvider!)}>
+            {t("common.cancel")}
+          </button>
+        )}
         <button type="button" className="btn btn-ghost" onClick={onBack}>{t("modal.back")}</button>
       </div>
     </div>

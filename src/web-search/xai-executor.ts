@@ -12,8 +12,9 @@
  */
 import type { OcxProviderConfig } from "../types";
 import { getValidAccessToken, publicOAuthAuthenticationErrorMessage } from "../oauth";
-import { fetchWithResetRetry } from "../lib/upstream-retry";
+import { applyUpstreamRecoveryInit, fetchWithResetRetry } from "../lib/upstream-retry";
 import { cancelBodyOnAbort, signalWithTimeout } from "../lib/abort";
+import { readBoundedResponseBytes } from "../lib/bounded-body";
 import { sidecarEnter } from "../lib/sidecar-tracker";
 import { redactSecretString } from "../lib/redact";
 import { MAX_SIDECAR_RESPONSE_BYTES, type WebSearchSource } from "./parse";
@@ -102,22 +103,31 @@ export async function runXaiWebSearch(
   const t0 = Date.now();
   try {
     const res = await fetchWithResetRetry(
-      () => fetch(url, {
+      recovery => fetch(url, applyUpstreamRecoveryInit({
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify(body),
         signal: linkedSignal.signal,
         // Credential-bearing: never follow a redirect off the pinned origin.
         redirect: "manual",
-      }),
-      { abortSignal: linkedSignal.signal, label: "xai-web-search-sidecar" },
+      }, recovery)),
+      { replaySafe: true, abortSignal: linkedSignal.signal, label: "xai-web-search-sidecar" },
     );
     const detachBodyGuard = cancelBodyOnAbort(res.body, linkedSignal.signal);
     if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      detachBodyGuard();
-      const entitlement = res.status === 401 || res.status === 403 ? " (Grok OAuth entitlement — re-run ocx login xai?)" : "";
-      return { text: "", sources: [], error: `xai sidecar HTTP ${res.status}${entitlement}: ${redactSecretString(t.slice(0, 200))}` };
+      try {
+        const bounded = await readBoundedResponseBytes(res, {
+          maxBytes: MAX_SIDECAR_RESPONSE_BYTES,
+          signal: linkedSignal.signal,
+        });
+        const detail = bounded.oversized
+          ? "response body exceeded byte bound"
+          : redactSecretString(new TextDecoder().decode(bounded.bytes).slice(0, 200));
+        const entitlement = res.status === 401 || res.status === 403 ? " (Grok OAuth entitlement — re-run ocx login xai?)" : "";
+        return { text: "", sources: [], error: `xai sidecar HTTP ${res.status}${entitlement}: ${detail}` };
+      } finally {
+        detachBodyGuard();
+      }
     }
     try {
       return await parseXaiResponsesSSE(res);

@@ -1,4 +1,5 @@
 import type { AdapterEvent, OcxConfig, OcxUsage } from "../../types";
+import { sanitizeLogMetadataString } from "../../lib/redact";
 
 /**
  * Empty-completion guard for Responses turns (port of codex-router's
@@ -21,6 +22,21 @@ import type { AdapterEvent, OcxConfig, OcxUsage } from "../../types";
  */
 export const EMPTY_COMPLETION_RETRY_ENV = "OCX_EMPTY_COMPLETION_RETRY";
 
+/**
+ * The observability notice for a turn that ended empty with the retry guard off.
+ *
+ * Both labels are caller-supplied: the request names its provider and model. Interpolated raw,
+ * a model name carrying newlines or terminal escapes writes additional lines into whatever
+ * reads this warning, so a caller could forge log records it never produced. Both are reduced
+ * to bounded single-line metadata first.
+ */
+export function emptyCompletionNotice(providerName: unknown, modelId: unknown): string {
+  const provider = sanitizeLogMetadataString(providerName) ?? "unknown";
+  const model = sanitizeLogMetadataString(modelId) ?? "unknown";
+  return `[opencodex] ${provider}/${model} completed with no output text and no tool call. `
+    + "Set \"emptyCompletionRetry\": true to retry such turns once.";
+}
+
 /** Retained pre-content events are bounded independently by count and encoded size. */
 export const EMPTY_COMPLETION_MAX_BUFFERED_EVENTS = 1_024;
 export const EMPTY_COMPLETION_MAX_BUFFERED_BYTES = 1_048_576;
@@ -34,6 +50,41 @@ export function emptyCompletionRetryEnabled(
 
 /** Surfaced when the single retry was also empty or failed upstream. */
 export const EMPTY_COMPLETION_RETRY_FAILED_CODE = "empty_completion_retry_failed";
+
+/**
+ * Observe an event stream for the empty-completion shape WITHOUT changing it (#2472).
+ *
+ * The guard above is opt-in, so with the default configuration a turn that completes with no
+ * output text and no tool call passes through untouched and the client records a silent
+ * success. That is the reported symptom: an empty result nobody can explain, with no trace
+ * that the proxy saw anything unusual.
+ *
+ * This is deliberately a passthrough observer, not a second guard. Retrying by default would
+ * re-send a turn that may have already had billable side effects; the honest default is to
+ * leave the stream alone and make the occurrence visible, so a user can correlate it and
+ * decide whether to enable the retry.
+ */
+export async function* observeEmptyCompletion(
+  events: AsyncIterable<AdapterEvent>,
+  onEmptyTurn: () => void,
+): AsyncGenerator<AdapterEvent> {
+  let sawContent = false;
+  let sawTerminal = false;
+  for await (const event of events) {
+    // Reasoning is deliberately NOT content, matching the guard: a reasoning-only stream that
+    // ends with nothing is the canonical shape of this failure.
+    if (isContentEvent(event)) sawContent = true;
+    if (isTerminalEvent(event)) {
+      sawTerminal = true;
+      // Only a successful terminal is the silent failure. `error` and `incomplete` are already
+      // a stated outcome the client can render, so flagging them would be noise.
+      if (!sawContent && event.type === "done") onEmptyTurn();
+    }
+    yield event;
+  }
+  // A stream that ends before any terminal is the pre-output EOF variant of the same failure.
+  if (!sawContent && !sawTerminal) onEmptyTurn();
+}
 
 /**
  * Terminal stop reasons the bridge renders as a visible `response.incomplete`
@@ -122,9 +173,13 @@ export function mergeUsage(
   const cacheReadInputTokens = sumOptional("cacheReadInputTokens");
   const cacheCreationInputTokens = sumOptional("cacheCreationInputTokens");
   const reasoningOutputTokens = sumOptional("reasoningOutputTokens");
+  const providerCredits = sumOptional("providerCredits");
   const contextTotalTokens = second.contextTotalTokens ?? first.contextTotalTokens;
   const inputTokens = first.inputTokens + second.inputTokens;
   const outputTokens = first.outputTokens + second.outputTokens;
+  // The attempt that produced the content owns the raw wire usage (openai/codex#41980);
+  // an empty first attempt may still be the only one that saw it.
+  const rawUsage = second.rawUsage ?? first.rawUsage;
   return {
     inputTokens,
     outputTokens,
@@ -134,7 +189,9 @@ export function mergeUsage(
     ...(cacheReadInputTokens !== undefined ? { cacheReadInputTokens } : {}),
     ...(cacheCreationInputTokens !== undefined ? { cacheCreationInputTokens } : {}),
     ...(reasoningOutputTokens !== undefined ? { reasoningOutputTokens } : {}),
+    ...(providerCredits !== undefined ? { providerCredits } : {}),
     ...(first.estimated || second.estimated ? { estimated: true } : {}),
+    ...(rawUsage !== undefined ? { rawUsage } : {}),
   };
 }
 
