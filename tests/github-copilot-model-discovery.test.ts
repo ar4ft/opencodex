@@ -3,6 +3,7 @@ import { fetchProviderModels, mergeConfiguredModelsIntoLiveCatalog } from "../sr
 import { clearModelCache, getProviderDiscoveryStatus } from "../src/codex/model-cache";
 import { providerConfigSeed } from "../src/providers/derive";
 import { getProviderRegistryEntry } from "../src/providers/registry";
+import { GITHUB_COPILOT_API_VERSION } from "../src/oauth/github-copilot";
 
 const name = "github-copilot";
 const seed = providerConfigSeed(getProviderRegistryEntry(name)!);
@@ -44,6 +45,7 @@ describe("GitHub Copilot account model sync", () => {
     expect(request?.url).toBe("https://api.githubcopilot.com/models");
     expect(request?.headers.get("authorization")).toBe("Bearer copilot-test-key");
     expect(request?.headers.get("copilot-integration-id")).toBe("vscode-chat");
+    expect(request?.headers.get("x-github-api-version")).toBe(GITHUB_COPILOT_API_VERSION);
     expect(models[0]?.contextWindow).toBe(128_000);
     expect(models[0]?.maxInputTokens).toBe(96_000);
     expect(getProviderDiscoveryStatus(name)).toEqual({ status: "ok" });

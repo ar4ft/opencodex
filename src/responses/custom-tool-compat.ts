@@ -1,9 +1,10 @@
-import { namespacedToolName } from "../types";
+import { namespacedToolName, normalizeDeclaredToolName } from "../types";
 import {
   normalizeApplyPatchDelimiters,
   repairFreeformToolInput,
   unwrapFreeformToolInput,
 } from "./apply-patch-envelope";
+import { compileCodeModeHelperInput, resolveCodeModeHelperName } from "./code-mode-helper-compat";
 import { collectResponsesToolGroups } from "./tool-groups";
 
 const ROUTED_CUSTOM_TOOL_PASSTHROUGH = new Set(["apply_patch"]);
@@ -63,6 +64,20 @@ export function routedCustomToolWireName(value: unknown): string | undefined {
     typeof value.namespace === "string" ? value.namespace : undefined,
     value.name,
   );
+}
+
+/** Resolve a provider-emitted wire name to the routed custom tool the client declared. */
+export function routedCustomToolTargetName(
+  value: unknown,
+  names: ReadonlySet<string>,
+  declaredNames?: ReadonlySet<string>,
+): string | undefined {
+  const wireName = routedCustomToolWireName(value);
+  if (wireName === undefined) return undefined;
+  if (names.has(wireName)) return wireName;
+  if (!isPlainObject(value) || typeof value.namespace === "string") return undefined;
+  const normalized = normalizeDeclaredToolName(wireName, declaredNames, undefined, names);
+  return normalized !== wireName && names.has(normalized) ? normalized : undefined;
 }
 
 /**
@@ -226,6 +241,160 @@ function rewriteForUpstream(
   return changed ? next : value;
 }
 
+/** Request-layer compatibility failure. Callers map this to HTTP 400, never an unhandled 500. */
+export class RoutedCustomToolCompatError extends Error {
+  readonly code = "custom_tool_compat";
+  constructor(
+    readonly stage: string,
+    readonly itemType: string,
+  ) {
+    super(`custom_tool_compat: ${stage}: ${itemType}`);
+    this.name = "RoutedCustomToolCompatError";
+  }
+}
+
+function collectDeclaredFunctionWireNames(body: unknown): Set<string> {
+  const names = new Set<string>();
+  const register = (tool: unknown, namespace?: string): void => {
+    if (!isPlainObject(tool) || tool.type !== "function" || typeof tool.name !== "string") return;
+    names.add(customToolWireName(namespace, tool.name));
+  };
+  for (const group of collectResponsesToolGroups(body)) {
+    for (const tool of group) {
+      if (!isPlainObject(tool)) continue;
+      if (tool.type === "namespace" && typeof tool.name === "string" && Array.isArray(tool.tools)) {
+        for (const child of tool.tools) register(child, tool.name);
+        continue;
+      }
+      register(tool);
+    }
+  }
+  return names;
+}
+
+function historicalCallIdentity(
+  item: Record<string, unknown>,
+): { name: string; namespace?: string } | undefined {
+  if (typeof item.name !== "string" || item.name.length === 0) return undefined;
+  return {
+    name: item.name,
+    ...(typeof item.namespace === "string" ? { namespace: item.namespace } : {}),
+  };
+}
+
+function sameHistoricalIdentity(
+  left: { name: string; namespace?: string },
+  right: { name: string; namespace?: string },
+): boolean {
+  return left.name === right.name && left.namespace === right.namespace;
+}
+
+/**
+ * Convert remaining protocol-history custom items when the destination has denied native custom
+ * tools. Walks only the top-level `input` array so tool-output JSON cannot be rewritten, and does
+ * not merge historical names into the live declaration / restore sets.
+ */
+function rewriteHistoricalCustomItems(
+  body: unknown,
+  declaredFunctionWireNames: ReadonlySet<string>,
+): unknown {
+  if (!isPlainObject(body) || !Array.isArray(body.input)) return body;
+
+  const calls = new Map<string, { name: string; namespace?: string }>();
+  const historicalCustomCallIds = new Set<string>();
+  for (const item of body.input) {
+    if (!isPlainObject(item)) continue;
+    if (item.type !== "custom_tool_call" && item.type !== "function_call") continue;
+    if (typeof item.call_id !== "string" || item.call_id.length === 0) {
+      if (item.type === "custom_tool_call") {
+        throw new RoutedCustomToolCompatError("historical_item", "custom_tool_call.call_id");
+      }
+      continue;
+    }
+    const identity = historicalCallIdentity(item);
+    if (!identity) {
+      if (item.type === "custom_tool_call") {
+        throw new RoutedCustomToolCompatError("historical_item", "custom_tool_call.name");
+      }
+      continue;
+    }
+    const existing = calls.get(item.call_id);
+    if (existing) {
+      throw new RoutedCustomToolCompatError(
+        "historical_item",
+        sameHistoricalIdentity(existing, identity) ? "duplicate_call_id" : "call_id",
+      );
+    }
+    calls.set(item.call_id, identity);
+    if (item.type === "custom_tool_call") historicalCustomCallIds.add(item.call_id);
+  }
+
+  let changed = false;
+  const input = body.input.map(item => {
+    if (!isPlainObject(item)) return item;
+    if (item.type === "custom_tool_call") {
+      if (typeof item.call_id !== "string" || item.call_id.length === 0) {
+        throw new RoutedCustomToolCompatError("historical_item", "custom_tool_call.call_id");
+      }
+      if (typeof item.name !== "string" || item.name.length === 0) {
+        throw new RoutedCustomToolCompatError("historical_item", "custom_tool_call.name");
+      }
+      if (typeof item.input !== "string") {
+        throw new RoutedCustomToolCompatError("historical_item", "custom_tool_call.input");
+      }
+      const wireName = customToolWireName(
+        typeof item.namespace === "string" ? item.namespace : undefined,
+        item.name,
+      );
+      if (declaredFunctionWireNames.has(wireName)) {
+        throw new RoutedCustomToolCompatError("historical_collision", "declared_function_name");
+      }
+      const { input: rawInput, id: _id, ...rest } = item;
+      changed = true;
+      return {
+        ...rest,
+        type: "function_call",
+        arguments: JSON.stringify({ input: rawInput }),
+      };
+    }
+    if (
+      item.type === "custom_tool_call_output"
+      && typeof item.call_id === "string"
+      && historicalCustomCallIds.has(item.call_id)
+    ) {
+      changed = true;
+      return { ...item, type: "function_call_output" };
+    }
+    return item;
+  });
+  return changed ? { ...body, input } : body;
+}
+
+export function validateFinalCustomToolCompatibility(
+  body: unknown,
+  supportsResponsesCustomTools?: boolean,
+): void {
+  if (supportsResponsesCustomTools !== false || !isPlainObject(body)) return;
+
+  const rejectCustomDeclaration = (tool: unknown): void => {
+    if (!isPlainObject(tool)) return;
+    if (tool.type === "custom") throw new RoutedCustomToolCompatError("final_guard", "custom");
+    if (tool.type === "namespace" && Array.isArray(tool.tools)) {
+      for (const child of tool.tools) rejectCustomDeclaration(child);
+    }
+  };
+  for (const group of collectResponsesToolGroups(body)) {
+    for (const tool of group) rejectCustomDeclaration(tool);
+  }
+  if (!Array.isArray(body.input)) return;
+  for (const item of body.input) {
+    if (!isPlainObject(item) || typeof item.type !== "string") continue;
+    if (item.type === "custom_tool_call" || item.type === "custom_tool_call_output") {
+      throw new RoutedCustomToolCompatError("final_guard", item.type);
+    }
+  }
+}
+
 export function rewriteRoutedCustomToolsForUpstream(
   body: unknown,
   supportsResponsesCustomTools?: boolean,
@@ -240,39 +409,100 @@ export function rewriteRoutedCustomToolsForUpstream(
   for (const name of repairNames) {
     if (!toolChoiceAllowsRoutedCustomTool(body, name, repairNames)) repairNames.delete(name);
   }
-  if (conversionNames.size === 0) return { body, names, repairNames };
+  if (conversionNames.size === 0 && supportsResponsesCustomTools !== false) {
+    return { body, names, repairNames };
+  }
+  let next = body;
+  if (conversionNames.size > 0) {
+    const callIds = new Set<string>();
+    collectConvertedCallIds(body, conversionNames, callIds);
+    next = rewriteForUpstream(body, conversionNames, callIds);
+  }
+  if (supportsResponsesCustomTools === false) {
+    next = rewriteHistoricalCustomItems(next, collectDeclaredFunctionWireNames(body));
+  }
+  return { body: next, names, repairNames };
+}
+
+/**
+ * A delta result has no tool name. Without its call, lowering cannot tell whether it belongs
+ * to a converted function or a native custom tool. Request full replay instead of guessing.
+ * A destination that has denied custom tools also cannot map an orphan result when the current
+ * catalog is empty, so that case must request replay rather than forwarding the native type.
+ */
+export function hasUnmappedRoutedCustomToolOutput(
+  body: unknown,
+  supportsResponsesCustomTools?: boolean,
+): boolean {
+  if (!isPlainObject(body) || !Array.isArray(body.input)) return false;
+  if (
+    supportsResponsesCustomTools !== false
+    && collectRoutedCustomToolNames(body, supportsResponsesCustomTools).size === 0
+  ) return false;
   const callIds = new Set<string>();
-  collectConvertedCallIds(body, conversionNames, callIds);
-  return { body: rewriteForUpstream(body, conversionNames, callIds), names, repairNames };
+  for (const item of body.input) {
+    if (isPlainObject(item)
+      && (item.type === "custom_tool_call" || item.type === "function_call")
+      && typeof item.call_id === "string") callIds.add(item.call_id);
+  }
+  return body.input.some(item => isPlainObject(item)
+    && item.type === "custom_tool_call_output"
+    && typeof item.call_id === "string"
+    && item.call_id.length > 0
+    && !callIds.has(item.call_id));
 }
 
 export function restoreRoutedCustomCalls(
   value: unknown,
   names: ReadonlySet<string>,
   repairNames: ReadonlySet<string> = new Set(),
+  declaredNames?: ReadonlySet<string>,
 ): { value: unknown; changed: boolean } {
   if (!isPlainObject(value)) return { value, changed: false };
 
   const restoreItem = (item: unknown): { value: unknown; changed: boolean } => {
     if (!isPlainObject(item)) return { value: item, changed: false };
     const wireName = routedCustomToolWireName(item);
+    const targetName = routedCustomToolTargetName(item, names, declaredNames);
     if (
-      item.type === "function_call"
+      (item.type === "function_call" || item.type === "custom_tool_call")
       && typeof item.name === "string"
       && wireName !== undefined
-      && names.has(wireName)
+      && targetName !== undefined
     ) {
+      const sourceInput = item.type === "function_call" ? item.arguments : item.input;
+      const aliased = targetName !== wireName;
+      const itemNamespace = typeof item.namespace === "string" ? item.namespace : undefined;
+      // Name-based alias first; otherwise let a raw patch envelope submitted as the `exec`
+      // body resolve to the same apply_patch helper (devlog/_plan/260905_apply_patch_envelope_gap).
+      const helper = aliased && sourceInput !== ""
+        ? item.name
+        : resolveCodeModeHelperName(undefined, targetName, sourceInput, itemNamespace, declaredNames);
+      // Native custom input is already the tool's raw grammar. Only a recognized
+      // helper/envelope may reinterpret it; a JSON-looking native body is not a wrapper.
+      if (item.type === "custom_tool_call" && !aliased && !helper) {
+        const input = repairNames.has(wireName) && typeof sourceInput === "string"
+          ? normalizeApplyPatchDelimiters(sourceInput)
+          : sourceInput;
+        return input !== sourceInput
+          ? { value: { ...item, input }, changed: true }
+          : { value: item, changed: false };
+      }
       const restored: Record<string, unknown> = {
         ...item,
         type: "custom_tool_call",
         id: customToolItemId(item.id),
-        input: repairFreeformToolInput(
-          item.arguments,
-          item.name,
-          typeof item.namespace === "string" ? item.namespace : undefined,
-        ),
+        name: aliased ? targetName : item.name,
+        input: helper
+          ? compileCodeModeHelperInput(sourceInput, helper, aliased ? String(item.name) : targetName)
+          : repairFreeformToolInput(
+            sourceInput,
+            targetName,
+            itemNamespace,
+          ),
       };
       delete restored.arguments;
+      if (aliased) delete restored.namespace;
       return { value: restored, changed: true };
     }
     if (
@@ -323,7 +553,7 @@ export function restoreRoutedCustomCalls(
     && value.type.startsWith("response.")
     && isPlainObject(value.response)
   ) {
-    const response = restoreRoutedCustomCalls(value.response, names, repairNames);
+    const response = restoreRoutedCustomCalls(value.response, names, repairNames, declaredNames);
     if (response.changed) {
       restored.response = response.value;
       changed = true;
@@ -337,6 +567,7 @@ export function restoreRoutedCustomCallsInJson(
   text: string,
   names: ReadonlySet<string>,
   repairNames: ReadonlySet<string> = new Set(),
+  declaredNames?: ReadonlySet<string>,
 ): string {
   if (names.size === 0 && repairNames.size === 0) return text;
   let payload: unknown;
@@ -345,7 +576,7 @@ export function restoreRoutedCustomCallsInJson(
   } catch {
     return text;
   }
-  const restored = restoreRoutedCustomCalls(payload, names, repairNames);
+  const restored = restoreRoutedCustomCalls(payload, names, repairNames, declaredNames);
   return restored.changed ? JSON.stringify(restored.value) : text;
 }
 

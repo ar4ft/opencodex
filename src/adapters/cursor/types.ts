@@ -11,18 +11,48 @@ export interface CursorRequestedModelParameter {
 
 export interface CursorRunRequest {
   modelId: string;
+  /**
+   * Normalized Cursor identity scope carried from request parsing so checkpoint
+   * observations stay scope-local. Transport metadata only; never serialized on the wire.
+   */
+  _cursorIdentityScope?: string;
   /** Cursor model-picker parameters encoded through AgentRunRequest.requested_model. */
   requestedModelParameters?: readonly CursorRequestedModelParameter[];
   /** Cursor Router optimization parameter; valid only while modelId is the `default` wire model. */
   routingLevel?: CursorRoutingLevel;
+  /**
+   * Cursor Max Mode (ultra/big-context). Set from a synthetic `-1m` picker variant; the wire
+   * keeps the original model id and raises RequestedModel.maxMode + ModelDetails.maxMode
+   * (both fields — missing either can invalid_argument upstream). Devlog 260826 070.
+   */
+  maxMode?: boolean;
+  /**
+   * Bare API callers (no caller tools, no Codex thread identity) pay a ~10-15K input-token
+   * preamble because an absent AgentRunRequest.mcp_tools field makes Cursor inject its default
+   * native tool catalog. When true, an explicitly empty McpTools wrapper is serialized instead,
+   * suppressing that default. Codex-identified sessions keep the absent-field behavior.
+   */
+  suppressDefaultCursorToolCatalog?: boolean;
+  /**
+   * Corrective active-turn text for the single envelope-echo retry (devlog 260826 gap-10).
+   * When set on an external tool-result continuation, buildPreparedCursorRunRequest uses it as
+   * the userMessageAction prefix instead of the standard continuation text; rawMessages stay
+   * untouched so history replay is unchanged.
+   */
+  echoRetryContinuationText?: string;
   conversationId: string;
+  /** Prompt fallback for Responses structured output; Cursor has no native schema field. */
+  textFormat?: OcxRequestOptions["textFormat"];
   system: string[];
   messages: CursorRequestMessage[];
   rawMessages?: readonly OcxMessage[];
   /**
-   * Images for the active user/developer turn. Encoded as SelectedImage blobIdWithData refs under
+   * Images for the active user/developer turn or an external model's trailing tool-result run.
+   * Encoded as SelectedImage blobIdWithData refs under
    * UserMessage.selected_context (bytes live in the request-scoped KV store for getBlobArgs
-   * hydration). History stays text-only. data: URLs only in this slice.
+   * hydration). Bounded sourceLabel metadata from tool images is appended to the active action,
+   * outside prunable history; it is not a new image wire field. Native Composer selection stays
+   * unchanged. History stays text-only. data: URLs only in this slice.
    */
   selectedImages?: readonly ResolvedCursorImage[];
   tools?: OcxTool[];

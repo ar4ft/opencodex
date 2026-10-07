@@ -85,10 +85,15 @@ les échecs de génération postérieurs à l'envoi des en-têtes sont transmis 
 
 ## Service auxiliaire de vision
 
-Lorsque le modèle routé est répertorié dans le `noVisionModels` de son fournisseur et qu'une requête porte une image,
-opencodex décrit chaque image **avant** l'appel principal et la remplace par du texte. Quand
-si `visionSidecar.model` est absent ou vide, le chemin d'exécution OpenAI, le tableau de bord et l'API de gestion
-utilisent le modèle de repli `gpt-5.4-mini`. Au démarrage, une ancienne valeur `gpt-5.4-mini` explicitement enregistrée
+Lorsqu'un modèle routé figure dans le `noVisionModels` de son fournisseur — ou est déclaré texte seul pour ce modèle
+via `modelInputModalities` — et qu'une requête porte une image, opencodex décrit chaque image **avant** l'appel principal
+et la remplace par du texte, à condition qu'un plan de sidecar vision soit disponible. Sans plan disponible, l'image brute
+est supprimée au lieu d'être transmise à un backend texte seul. Le catalogue de modèles annonce l'entrée image pour chaque
+modèle couvert par le sidecar. Les combos annoncent l'entrée image seulement lorsque chaque membre accepte les images,
+nativement ou via un sidecar, et que le paramètre `imageInput` du combo n'est pas désactivé, afin que des clients comme
+l'application Codex autorisent les pièces jointes au lieu de les bloquer avant l'exécution du sidecar. Lorsque
+`visionSidecar.model` est absent ou vide, le chemin d'exécution OpenAI, le tableau de bord et l'API de gestion
+utilisent le modèle de repli `gpt-5.6-luna`. Au démarrage, une ancienne valeur `gpt-5.6-luna` explicitement enregistrée
 est toujours migrée vers `gpt-5.6-luna` ; cette migration s'applique à une valeur stockée, et non à l'absence du
 champ du modèle.
 
@@ -108,8 +113,8 @@ champ du modèle.
   les images distantes `https` sont récupérées par le moteur OpenAI, et non par le proxy.
 - La correspondance `noVisionModels` ignore un suffixe `:size` de style Ollama, donc une entrée `gpt-oss` couvre également
   `gpt-oss:120b`.
-- Si la description échoue, le modèle reçoit un bref marqueur d'erreur de traitement. Si aucun service auxiliaire n'est
-  disponible, l'image brute est supprimée plutôt que transmise à un moteur limité au texte.
+- Si la description échoue, le modèle reçoit un bref marqueur d'erreur de traitement. (Sans plan de sidecar disponible,
+  aucune description n'est tentée : l'image brute est supprimée comme indiqué ci-dessus.)
 - `maxDescriptionsPerTurn` (8 par défaut) limite les nouvelles descriptions par tour du modèle principal. Les résultats du cache et
   les doublons au même tour ne le consomment pas. Les descriptions d'images `data:` réussies sont mises en cache par
   moteur, modèle, niveau de détail, octets de l'image et contexte du message — ainsi que l'effort de raisonnement dans les
@@ -140,9 +145,8 @@ Un modèle est marqué en texte uniquement par fournisseur :
 {
   "providers": {
     "ollama-cloud": {
-      "adapter": "openai-chat",
       "baseUrl": "https://ollama.com/v1",
-      "noVisionModels": ["glm-5.2", "gpt-oss", "qwen3-coder", "deepseek-v4-pro"]
+      "noVisionModels": ["glm-5.2", "gpt-oss", "qwen3-coder", "deepseek-v4-flash"]
     }
   }
 }
@@ -159,6 +163,16 @@ le délai d'attente et la limite précédemment choisis.
 `PUT /api/sidecar-settings` accepte les mêmes champs. Les mises à jour partielles laissent
 les clés omises inchangées. `timeoutMs` utilise les limites entières de l'environnement d'exécution
 (1–2147483647 ms).
+
+La carte du service auxiliaire de recherche web reprend la même forme de contrôle : la première
+ligne du sélecteur de modèle est **Désactivé (Off)**. La désactivation arrête l'interception de
+`web_search` par OpenCodex et l'intégration Codex écrit `web_search = "disabled"` dans
+`~/.codex/config.toml`, car Codex continue sinon d'annoncer son propre outil hébergé
+`web_search` natif, ce qu'il faut lorsqu'un serveur de recherche MCP doit être le seul chemin
+de recherche. La réactivation supprime cette ligne et rétablit la ligne racine `web_search`
+écrite par l'opérateur, enregistrée dans le journal Codex. L'écriture exige un
+`~/.codex/config.toml` géré (`ocx sync`) ; la carte du tableau de bord vous avertit
+lorsqu'elle n'a pas eu lieu et `ocx agent sidecar web --enabled off` indique si elle a réussi.
 
 Vous pouvez toujours définir `enabled: false` dans `config.json` si vous préférez modifier le
 fichier directement. La recherche et la description d'images avec OAuth Anthropic réutilisent les identifiants

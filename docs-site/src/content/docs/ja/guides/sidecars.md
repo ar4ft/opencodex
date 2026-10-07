@@ -69,9 +69,14 @@ stall は全体生成 timeout ではありません。SSE 開始前の失敗は 
 
 ## ビジョンサイドカー
 
-ルーティングモデルが該当プロバイダーの `noVisionModels` にありリクエストに画像が来る場合、opencodex は
-メイン呼び出し**前に**各画像を説明したテキストに差し替えます。`visionSidecar.model` が未設定または空の場合、
-OpenAI 実行経路、ダッシュボード、管理 API は `gpt-5.4-mini` をフォールバックとして使います。起動時には
+ルーティングモデルが該当プロバイダーの `noVisionModels` にある、またはそのモデルが
+`modelInputModalities` でテキスト専用と宣言され、リクエストに画像が来る場合、opencodex は利用可能な
+ビジョンサイドカー計画があるときに限り、メイン呼び出し**前に**各画像を説明したテキストに差し替えます。
+計画が利用できない場合は、生の画像をテキスト専用バックエンドへ転送せず削除します。モデルカタログは
+サイドカー対象の各モデルに画像入力を広告します。コンボは、すべてのメンバーがネイティブまたはサイドカーを
+通じて画像を受け入れ、かつコンボの `imageInput` 設定が無効でない場合にのみ画像入力を広告します。これにより
+Codex アプリなどのクライアントは、サイドカー実行前に添付をブロックせず許可できます。`visionSidecar.model` が未設定または空の場合、
+OpenAI 実行経路、ダッシュボード、管理 API は `gpt-5.6-luna` をフォールバックとして使います。起動時には
 明示的に保存された旧 `gpt-5.4-mini` 値を引き続き `gpt-5.6-luna` にマイグレーションしますが、この
 マイグレーションは保存済みの値だけが対象で、モデルフィールドがない場合には適用されません。
 
@@ -92,8 +97,8 @@ OpenAI 実行経路、ダッシュボード、管理 API は `gpt-5.4-mini` を�
   リモート `https` 画像はプロキシではなく OpenAI バックエンドが取得します。
 - `noVisionModels` 比較は Ollama 式の `:size` 接尾辞を無視するため `gpt-oss` 項目 1 つで
   `gpt-oss:120b` も処理できます。
-- 画像説明が失敗すると短い処理エラー案内文をモデルに渡します。サイドカー計画自体を作れない場合は
-  テキスト専用バックエンドに元画像を送らず削除します。
+- 画像説明が失敗すると短い処理エラー案内文をモデルに渡します。（利用可能なサイドカー計画がない場合は
+  説明を試みず、上記のとおり元画像を削除します。）
 - `maxDescriptionsPerTurn`(デフォルト 8)はメインモデル 1 ターンで新規実行する説明数を制限します。キャッシュ
   ヒットと同じターンの重複要求は限度を消費しません。成功した `data:` 画像説明はバックエンド、モデル、
   detail、画像バイト、メッセージ文脈を基準にキャッシュし、OpenAI のキーには推論負荷も含まれます
@@ -119,9 +124,8 @@ OpenAI 実行経路、ダッシュボード、管理 API は `gpt-5.4-mini` を�
 {
   "providers": {
     "ollama-cloud": {
-      "adapter": "openai-chat",
       "baseUrl": "https://ollama.com/v1",
-      "noVisionModels": ["glm-5.2", "gpt-oss", "qwen3-coder", "deepseek-v4-pro"]
+      "noVisionModels": ["glm-5.2", "gpt-oss", "qwen3-coder", "deepseek-v4-flash"]
     }
   }
 }
@@ -133,5 +137,14 @@ OpenAI 実行経路、ダッシュボード、管理 API は `gpt-5.4-mini` を�
 
 `PUT /api/sidecar-settings` は同じフィールドを受け付けます。部分更新では省略したキーをそのまま残します。`timeoutMs` はランタイムの整数範囲（1–2147483647 ms）を使います。
 
+Web 検索サイドカーのカードも同じ構成です。モデルピッカーの先頭行が **オフ (Off)** です。オフにすると
+OpenCodex は `web_search` への介入をやめ、Codex 統合は `~/.codex/config.toml` に
+`web_search = "disabled"` を書き込みます。Codex は自身のモードがそうなるまでネイティブの
+ホスト型 `web_search` ツールを広告し続けるためで、MCP 検索サーバーだけを検索経路にしたい
+場合に必要です。再びオンにするとこの行は削除され、Codex ジャーナルに記録されたオペレーター自身の
+ルート `web_search` 行が復元されます。この書き込みには管理対象の
+`~/.codex/config.toml`（`ocx sync`）が必要で、書き込みが行われなかった場合は
+ダッシュボードのカードが警告し、`ocx agent sidecar web --enabled off` が結果を報告します。
+
 ファイルを直接編集したい場合は、これまでどおり `config.json` で `enabled` を `false` にできます。Anthropic OAuth 検索と画像説明は既存の Claude Code OAuth fingerprint 先例に従いますが、実際のアカウントと作業量で十分 soak test するのが無難です。全
-フィールドは[設定リファレンス](/ja/reference/configuration/#sidecars)を参照してください。
+フィールドは[設定リファレンス](/ja/reference/configuration/server/#サイドカー)を参照してください。

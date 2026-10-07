@@ -23,7 +23,12 @@ export type CursorCheckpointInvalidationReason =
   | "trailing_tool_result"
   | "force_fresh"
   | "upstream_invalid_argument"
-  | "lineage_mismatch";
+  | "lineage_mismatch"
+  /**
+   * The checkpoint's own roots leave no room for the uncovered suffix inside Cursor's root envelope.
+   * Resuming would send history the model cannot see; a full replay prunes coherently instead.
+   */
+  | "envelope_exhausted";
 
 export interface CursorCheckpointSnapshot {
   ref: string;
@@ -37,6 +42,7 @@ export interface CursorCheckpointSnapshot {
   coveredMessageCount?: number;
   prefixDigest?: string;
   systemDigest?: string;
+  toolSuspended?: boolean;
 }
 
 interface CursorCheckpointStore {
@@ -179,6 +185,43 @@ export function cursorCheckpointRefHash(ref: string): string {
   return createHash("sha256").update("ocx:cursor:ckpt-ref:").update(ref).digest("hex").slice(0, 16);
 }
 
+/**
+ * Counts only — never content. Diagnostics about a checkpoint have so far reported its size in
+ * bytes, which says nothing about what is in it, and that gap is exactly what left #4245's native
+ * half undecidable: `capturedAfterClientTool` proves a snapshot ARRIVED after the tool call, and
+ * only `pendingToolCalls` says whether the snapshot actually knows about one.
+ *
+ * `pendingToolCalls` is documented upstream as raw JSON tool-call parts awaiting execution, so a
+ * non-zero count on a suspended turn is the coverage evidence. The strings themselves are request
+ * content and are never read here.
+ *
+ * If you extend this, keep it counts-only. `ConversationStateStructure` also carries
+ * `readPaths`, `previousWorkspaceUris`, and the `fileStates`/`fileStatesV2` keys — all of which
+ * are user paths or workspace identity, and all of which would turn a diagnostic into a privacy
+ * leak the moment someone returns them as values instead of lengths.
+ */
+export function cursorCheckpointShape(checkpointBytes: Uint8Array | undefined): {
+  turns: number;
+  turnsOld: number;
+  rootPromptMessages: number;
+  todos: number;
+  pendingToolCalls: number;
+} | undefined {
+  if (!checkpointBytes || checkpointBytes.byteLength === 0) return undefined;
+  try {
+    const state = fromBinary(ConversationStateStructureSchema, checkpointBytes);
+    return {
+      turns: state.turns.length,
+      turnsOld: state.turnsOld.length,
+      rootPromptMessages: state.rootPromptMessagesJson.length,
+      todos: state.todos.length,
+      pendingToolCalls: state.pendingToolCalls.length,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 export function commitCursorCheckpoint(input: {
   conversationId: string;
   identityScope?: string;
@@ -187,6 +230,7 @@ export function commitCursorCheckpoint(input: {
   coveredMessageCount?: number;
   prefixDigest?: string;
   systemDigest?: string;
+  toolSuspended?: boolean;
 }): string | undefined {
   if (!input.conversationId || !input.modelId || input.checkpointBytes.byteLength === 0) return undefined;
   if (input.checkpointBytes.byteLength > CURSOR_CHECKPOINT_MAX_TOTAL_BYTES) return undefined;
@@ -216,6 +260,7 @@ export function commitCursorCheckpoint(input: {
     ...(input.coveredMessageCount !== undefined ? { coveredMessageCount: input.coveredMessageCount } : {}),
     ...(input.prefixDigest ? { prefixDigest: input.prefixDigest } : {}),
     ...(input.systemDigest ? { systemDigest: input.systemDigest } : {}),
+    ...(input.toolSuspended ? { toolSuspended: true } : {}),
   };
   const blobIds = collectCheckpointBlobIds(input.checkpointBytes);
   if (blobIds === undefined) return undefined;
@@ -236,6 +281,7 @@ export function commitCursorCheckpoint(input: {
 }
 
 export function getCursorCheckpointForPrefix(input: {
+  conversationId: string;
   prefixDigest: string;
   systemDigest: string;
   coveredMessageCount: number;
@@ -244,17 +290,21 @@ export function getCursorCheckpointForPrefix(input: {
 }): CursorCheckpointSnapshot | undefined {
   prune();
   const refs = store.prefixIndex.get(input.prefixDigest);
-  if (!refs || refs.size !== 1) return undefined;
-  const [ref] = refs;
-  if (!ref) return undefined;
-  const snapshot = getCursorCheckpoint(ref);
-  if (!snapshot) return undefined;
+  if (!refs) return undefined;
   const identityScope = input.identityScope?.trim() || "local";
-  if (snapshot.systemDigest !== input.systemDigest) return undefined;
-  if (snapshot.coveredMessageCount !== input.coveredMessageCount) return undefined;
-  if (snapshot.identityScope !== identityScope) return undefined;
-  if (snapshot.modelId !== input.modelId) return undefined;
-  return snapshot;
+  let foundRef: string | undefined;
+  for (const ref of refs) {
+    const snapshot = store.snapshots.get(ref);
+    if (!snapshot) continue;
+    if (snapshot.conversationId !== input.conversationId) continue;
+    if (snapshot.systemDigest !== input.systemDigest) continue;
+    if (snapshot.coveredMessageCount !== input.coveredMessageCount) continue;
+    if (snapshot.identityScope !== identityScope) continue;
+    if (snapshot.modelId !== input.modelId) continue;
+    if (foundRef) return undefined;
+    foundRef = ref;
+  }
+  return getCursorCheckpoint(foundRef);
 }
 
 export function getLatestCursorCheckpoint(
