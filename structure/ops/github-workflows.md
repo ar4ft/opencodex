@@ -1,6 +1,10 @@
 # GitHub Workflows
 
-This fork retains only `.github/workflows/tag-release.yml` for GitHub automation. The upstream
+This fork retains `.github/workflows/tag-release.yml` and `.github/workflows/upstream-maintenance.yml`
+for GitHub automation. Stable upstream updates open draft PRs with explicit behavior-impact reports,
+retained fork boundaries, focused read-only candidate checks and exact-head human approval status.
+They never merge or publish automatically; repository rules govern whether review requirements
+block a manual merge. See `UPSTREAM_MAINTENANCE.md`. The upstream
 workflow descriptions below document the parent project's automation and do not establish a CI
 gate in this fork. The tag workflow compiles six standalone Linux/macOS/Windows binaries across
 x64 and arm64, publishes SHA-256 checksums, and marks hyphenated preview tags as prereleases.
