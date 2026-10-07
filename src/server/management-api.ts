@@ -308,6 +308,8 @@ export async function handleManagementAPI(
   }
 
   async function syncClaudeAgentDefsBestEffort(): Promise<void> {
+    const { localClientSyncAllowed } = await import("../codex/desired-state");
+    if (!localClientSyncAllowed(config)) return;
     try {
       const { injectClaudeAgentDefs } = await import("../claude/agents-inject");
       if (config.claudeCode?.enabled === false || config.claudeCode?.injectAgents === false) {
@@ -316,10 +318,11 @@ export async function handleManagementAPI(
       }
       try {
         const [models, { buildClaudeContextWindows }, { visibleNativeSlugs }] = await Promise.all([
-          fetchAllModels(config),
+          (deps.fetchAllModels ?? fetchAllModels)(config),
           import("../claude/context-windows"),
           import("../codex/catalog"),
         ]);
+        if (!localClientSyncAllowed(config)) return;
         injectClaudeAgentDefs(
           config,
           buildClaudeContextWindows([...visibleNativeSlugs(config)], models, nativeContextLimits(config)),
@@ -328,7 +331,7 @@ export async function handleManagementAPI(
       } catch {
         // Keep routes available through a provider-discovery blip. A later
         // launch-time sync restores any context markers missing from this pass.
-        injectClaudeAgentDefs(config, {}, deps.claudeAgentConfigDir);
+        if (localClientSyncAllowed(config)) injectClaudeAgentDefs(config, {}, deps.claudeAgentConfigDir);
       }
     } catch { /* best-effort */ }
   }

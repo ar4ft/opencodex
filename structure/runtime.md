@@ -1,5 +1,5 @@
 # Runtime
-
+The fork scope in [fork client scope](fork-client-scope.md) takes precedence over native Codex behavior described below. Sync refreshes the proxy and enabled Grok/Claude clients; legacy proxy lifecycle actions are refused before native shutdown hooks can run.
 The minute sweep checks persisted activation deadlines locally; only missing deadlines trigger metadata discovery. See the [quota activation contract](providers/openai-tiers.md#public-provider-contract).
 
 ## Resolved static model policy

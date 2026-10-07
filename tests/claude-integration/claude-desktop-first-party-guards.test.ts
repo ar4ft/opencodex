@@ -30,7 +30,9 @@ function config(extra: Partial<OcxConfig> = {}): OcxConfig {
     port: 10100,
     defaultProvider: "mock",
     clientIntegrations: { grok: false },
-    providers: { mock: { adapter: "openai-chat", baseUrl: "https://example.test/v1", models: ["keep"] } },
+    // Count Desktop discovery only; agent discovery is a separate enabled-client path.
+    claudeCode: { injectAgents: false },
+    providers: { mock: { adapter: "openai-chat", baseUrl: "https://example.test/v1", liveModels: false, models: ["keep"] } },
     ...extra,
   } as OcxConfig;
 }
@@ -251,4 +253,14 @@ test("roster update auto-apply never writes behind an explicit first-party marke
   expect(reply.status).toBe(200);
   expect(discovered).toBe(0);
   expect(writes).toEqual([]);
+});
+
+
+test("fork sync respects first-party Desktop mode before discovery or profile writes", async () => {
+  const { syncEnabledClientIntegrations: syncForkClients } = await import("../../src/clients/sync");
+  const current = config({ claudeCode: { enabled: false, desktopMode: "first-party" } });
+  writeFileSync(join(root, "config.json"), JSON.stringify(current));
+  const before = readFileSync(join(root, "config.json"), "utf8");
+  expect(await syncForkClients(10100, current)).toEqual([]);
+  expect(readFileSync(join(root, "config.json"), "utf8")).toBe(before);
 });

@@ -55,6 +55,10 @@ export function resolveInboundModel(model: string, cc?: OcxClaudeCodeConfig): st
   const map = cc?.modelMap ?? {};
   const exact = map[model];
   if (typeof exact === "string" && exact.length > 0) return exact;
+  // Operator-declared maps retain precedence over an unresolved picker slot.
+  const stripped = model.replace(/-\d{8}$/, "");
+  const dateless = map[stripped];
+  if (typeof dateless === "string" && dateless.length > 0) return dateless;
   if (isUnresolvedDesktop3pAlias(model)) {
     const base = model.endsWith("--fast") ? model.slice(0, -"--fast".length) : model;
     // A missing date-shaped ID is ambiguous even after a successful but partial
@@ -62,9 +66,6 @@ export function resolveInboundModel(model: string, cc?: OcxClaudeCodeConfig): st
     if (validDateAlias(base)) throw new DesktopModelMappingUnavailableError();
     throw new AnthropicRequestError("Unknown Claude Desktop alias; reapply the Desktop profile from the connected hub");
   }
-  const stripped = model.replace(/-\d{8}$/, "");
-  const dateless = map[stripped];
-  if (typeof dateless === "string" && dateless.length > 0) return dateless;
 
   // Claude Code Auto Mode classifier routing (#1697). Bare classifier checks such as
   // `claude-opus-5` carry no provider, so without this they fall through to defaultProvider --

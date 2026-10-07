@@ -1497,7 +1497,7 @@ JSON mode: `payload`.
 
 Usage: `ocx system sync [--json]`
 
-Synchronize client catalogs and configuration.
+Refresh provider models and enabled Grok/Claude integrations.
 
 State-changing: yes.
 

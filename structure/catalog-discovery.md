@@ -6,7 +6,7 @@ Successful discovery is authoritative even when empty. Configured seeds, dated a
 retention cannot add omitted IDs back. Failed discovery may retain a verified cached roster but
 cannot infer subscription access from a cold static seed. Explicit `liveModels: false` remains the
 manual static-catalog path. `src/codex/catalog/model-hints.ts` reads Copilot's nested context and
-prompt limits; `tests/github-copilot-model-discovery.test.ts` covers the account roster behavior.
+prompt limits; `tests/codex-integration/github-copilot-model-discovery.test.ts` covers the account roster behavior.
 
 Provider live-model lists are cached with a configured TTL (`src/codex/model-cache.ts`). Adding,
 deleting, or editing a provider's shape clears that per-provider cache; a disabled-only change

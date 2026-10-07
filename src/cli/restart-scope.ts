@@ -4,6 +4,7 @@
  * Its own module because `sync`, `sync-cache` and `catalog pull` all need it, and
  * having `catalog.ts` import it from `dispatch.ts` would make the two files circular.
  */
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "../codex/native-client-policy";
 import { afterCatalogWriteHandleAppServers } from "../codex/app-server-processes";
 import type { AfterCatalogWriteAppServerResult } from "../codex/app-server-processes";
 import type { DesktopAppRestartIo, DesktopAppRestartResult } from "../codex/desktop-app-restart";
@@ -32,6 +33,7 @@ export function readRestartScope(
   args: readonly string[],
   log: Pick<Console, "error">,
 ): RestartScope {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { appServers: false, desktopApp: false };
   const appServerOnly = args.includes("--restart-app-server-only");
   const legacyDesktop = args.includes("--restart-desktop-app");
   const restartCodex = args.includes("--restart-codex");
@@ -76,6 +78,7 @@ export async function handleRestartScopeAfterWrite(
   scope: RestartScope,
   log: Pick<Console, "log" | "error">,
 ): Promise<RestartScopeOutcome> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return {};
   const { listCodexDesktopAppPids } = await import("../codex/desktop-app-restart");
   // KNOWN LIMITATION on Windows. The exclusion matches pids against the discovered
   // desktop tree, and the Windows probe enumerates only ChatGPT.exe, while Windows

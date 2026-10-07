@@ -110,3 +110,52 @@ test("sync refuses a legacy running proxy before it can invoke native catalog sy
     expect(calls).toEqual(["GET /api/fork-client-policy"]);
   } finally { legacy.stop(true); }
 });
+
+
+test("remote connect, sync and disconnect refuse before locks, network or catalog writes", async () => {
+  const { connectClient, syncConnectedClient, disconnectClient } = await import("../../src/client/connect");
+  const home = mkdtempSync(join(tmpdir(), "oxc-native-connect-"));
+  const previousHome = process.env.OPENCODEX_HOME;
+  const previousCodexHome = process.env.CODEX_HOME;
+  const native = join(home, "native");
+  mkdirSync(native);
+  writeFileSync(join(native, "config.toml"), "native sentinel");
+  const before = snapshot(native);
+  process.env.OPENCODEX_HOME = join(home, "proxy");
+  process.env.CODEX_HOME = native;
+  const forbidden = () => { throw Error("Remote native machinery ran"); };
+  try {
+    await expect(connectClient({ serverUrl: "http://127.0.0.1:1", credential: {
+      kind: "link", apiKeyId: "fixture", key: "fixture-key",
+    }, selectedClients: ["codex"], managementTransport: "direct" }, { fetchImpl: forbidden }))
+      .rejects.toThrow("integration is disabled in this fork");
+    await expect(syncConnectedClient({}, { fetchImpl: forbidden }))
+      .rejects.toThrow("integration is disabled in this fork");
+    await expect(disconnectClient()).rejects.toThrow("integration is disabled in this fork");
+    expect(snapshot(native)).toEqual(before);
+    expect(readdirSync(home)).toEqual(["native"]);
+  } finally {
+    if (previousHome === undefined) delete process.env.OPENCODEX_HOME;
+    else process.env.OPENCODEX_HOME = previousHome;
+    if (previousCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = previousCodexHome;
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+
+test("hidden native Desktop restart and ChatGPT filter commands refuse before loading helpers", async () => {
+  const { handleInternalCommand } = await import("../../src/cli/internal-command");
+  expect(await handleInternalCommand(["desktop-restart-handoff", "--plan", "/missing/native-plan.json"])).toBe(2);
+  expect(await handleInternalCommand(["chatgpt-app-server-filter", "--self-test"])).toBe(2);
+});
+
+
+test("restart scopes cannot inspect or signal native clients", async () => {
+  const { readRestartScope, handleRestartScopeAfterWrite } = await import("../../src/cli/restart-scope");
+  const forbidden = () => { throw Error("Native restart machinery ran"); };
+  expect(readRestartScope(["--restart-codex", "--restart-desktop-app"], { error: forbidden }))
+    .toEqual({ appServers: false, desktopApp: false });
+  expect(await handleRestartScopeAfterWrite({ appServers: true, desktopApp: true }, { log: forbidden, error: forbidden }))
+    .toEqual({});
+});

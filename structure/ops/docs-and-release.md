@@ -1,5 +1,7 @@
 # Docs And Release
 
+The fork retains only `.github/workflows/tag-release.yml`; the linked automation inventory below belongs to upstream.
+
 `src/cli.ts` delegates to the CLI entrypoint packaged by the release tooling.
 
 The activation scheduling contract is covered by `tests/codex-integration/codex-quota-auto-refresh.test.ts`, including restart recovery and bounded retries. See the [quota activation contract](../providers/openai-tiers.md#public-provider-contract).
@@ -127,7 +129,7 @@ limits, so the public guide does not apply them to inference payloads.
 
 ## GitHub Pages
 
-`.github/workflows/deploy-docs.yml` publishes the docs to:
+[deploy-docs.yml](https://github.com/lidge-jun/opencodex/blob/main/.github/workflows/deploy-docs.yml) publishes the docs to:
 
 ```text
 https://opencodex.me/
@@ -138,7 +140,7 @@ The workflow runs on `main` pushes touching `docs-site/**` or the workflow itsel
 
 That workflow is the deploy path, not a review gate: it first runs after promotion to `main`,
 so on its own it can only report a broken site once the change has already left review. The
-pull-request gate is the `docs-site-build` job in `.github/workflows/ci.yml`, selected by the
+pull-request gate is the `docs-site-build` job in [ci.yml](https://github.com/lidge-jun/opencodex/blob/main/.github/workflows/ci.yml), selected by the
 `changes` job's `docs` filter (`docs-site/**` and the workflow itself). One Linux leg installs
 `docs-site` with `--frozen-lockfile` and runs the Astro build, so a manifest and lockfile that
 disagree fail before the build does. The `ci` aggregate treats it exactly like the other scoped
@@ -269,7 +271,7 @@ exists so the repository-shape source of truth does not omit the shape of its ow
 ## Maintenance governance
 
 `MAINTAINERS.md` is the source of truth for current project roles and the review and merge policy.
-`.github/CODEOWNERS` declares default reviewers and repeats ownership for authentication, repository
+[CODEOWNERS](https://github.com/lidge-jun/opencodex/blob/main/.github/CODEOWNERS) declares default reviewers and repeats ownership for authentication, repository
 automation, release, and governance paths where an explicit security review is required. GitHub
 repository settings remain the source of truth for actual account permissions and protected-branch
 enforcement. For `dev`, a current maintainer with live `maintain` or `admin` access can
@@ -369,7 +371,7 @@ version under a manifest naming the new one, and the updater re-offers that rele
 touches anything else. `tests/ci-workflows/release-version-sources.test.ts` fails on drift in the
 working tree and pins that wiring.
 
-The `package-standalone` job in `.github/workflows/release.yml` also builds Bun compiled
+The `package-standalone` job in [release.yml](https://github.com/lidge-jun/opencodex/blob/main/.github/workflows/release.yml) also builds Bun compiled
 `ocx` archives for Linux, macOS, and Windows, bundles `gui/dist`, smoke-tests `/healthz`, and
 publishes SHA-256 sidecars for the attach job. Each archive also carries the target-matching
 `@napi-rs/keyring` native addon under `keyring/`; the macOS release installs both optional Darwin
@@ -378,7 +380,7 @@ architecture. Desktop preparation copies those same pinned assets into Tauri res
 and packaged-app proof are owned by the [desktop keyring contract](../desktop-shell.md#packaged-native-keyring-binding).
 
 Opening a release starts with the `dev` pre-move. Dispatch
-`.github/workflows/dev-version-bump.yml` with the intended version, merge the pull request it opens,
+[dev-version-bump.yml](https://github.com/lidge-jun/opencodex/blob/main/.github/workflows/dev-version-bump.yml) with the intended version, merge the pull request it opens,
 then promote and release. A no-op is valid when `dev` already outranks the target. `release.yml`
 independently enforces that readiness condition and refuses publication if the pre-move is missing.
 The design and repair history live in `devlog/_fin/260904_release_version_line/`.

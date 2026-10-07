@@ -1,5 +1,7 @@
 # CLI management and discovery
 
+The [fork client scope](fork-client-scope.md) controls native-client commands and legacy proxy lifecycle refusal. Status treats the proxy as useful for Grok/Claude even when Codex routing remains native.
+
 `src/cli/` contains the terminal management interface. Process ownership, startup, stop and service contracts remain in [Runtime](runtime.md); this document owns command discovery, help, management-client presentation and the generated operating reference.
 
 ## CLI readiness diagnostics

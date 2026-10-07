@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { refreshDesktopRequestModel } from "../../src/claude/desktop-request-model";
 import { buildDesktop3pRegistry } from "../../src/claude/desktop-3p";
 import { resolveInboundModel } from "../../src/claude/inbound";
-import { reconcileDesktopProfile } from "../../src/claude/desktop-profile";
+import { desktopProfileWireAlias, reconcileDesktopProfile } from "../../src/claude/desktop-profile";
 import type { OcxConfig } from "../../src/types";
 
 const alias = "claude-opus-4-8-20260330";
@@ -43,4 +43,22 @@ test("explicit mapping and native Anthropic dated IDs retain their route", async
   const discover = async () => { throw Error("must not discover"); };
   await refreshDesktopRequestModel({ ...config, claudeCode: { modelMap: { [alias]: route } } }, alias, discover);
   await refreshDesktopRequestModel({ ...config, defaultProvider: "anthropic" }, alias, discover);
+});
+
+
+test("new wire aliases and fast variants recover the same route on a cold gateway", async () => {
+  const wire = desktopProfileWireAlias(alias);
+  for (const requested of [wire, `${wire}--fast`]) {
+    buildDesktop3pRegistry([], []);
+    await refreshDesktopRequestModel(config, requested, async () => roster);
+    expect(resolveInboundModel(wire)).toBe(route);
+  }
+});
+
+test("an explicit dateless modelMap overrides an unresolved date slot", async () => {
+  buildDesktop3pRegistry([], []);
+  const cc = { modelMap: { "claude-opus-4-8": route } };
+  await refreshDesktopRequestModel({ ...config, claudeCode: cc }, alias,
+    async () => { throw Error("must not discover"); });
+  expect(resolveInboundModel(alias, cc)).toBe(route);
 });

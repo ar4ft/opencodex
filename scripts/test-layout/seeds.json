@@ -25,13 +25,14 @@
           "^(?:ollama)-"
         ],
         "github-copilot": [
-          "^(?:github)-"
+          "^(?:github)-(?!copilot-model-discovery\\.test\\.ts$)"
         ]
       }
     },
     "codex-integration": {
       "match": [
         "^context-compat\\.test\\.ts$",
+        "^(?:github-copilot-model-discovery|fork-native-client-isolation)\\.test\\.ts$",
         "^(?:active|app|bearer|catalog|combos\\.test\\.ts|doctor\\.test\\.ts|effort|gather|history|injection|issue|multi|native|parallel|project|selected|slug|ultrafast|warmup\\.test\\.ts)-"
       ]
     },

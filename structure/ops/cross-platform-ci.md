@@ -2,7 +2,7 @@
 
 The [desktop membership contract](../runtime.md#codex-desktop-process-membership) has adapter regression coverage on every host and real PowerShell prefilter regression coverage with synthetic CIM rows on Windows in `tests/clients/desktop-app-restart.test.ts`. A skipped Windows lane does not exercise that native filter; uid-dependent POSIX cases in `tests/clients/desktop-app-restart-posix.test.ts` are skipped on Windows.
 
-`.github/workflows/ci.yml` is the ordinary quality gate for runtime/package changes. A pull
+[ci.yml](https://github.com/lidge-jun/opencodex/blob/main/.github/workflows/ci.yml) is the ordinary quality gate for runtime/package changes. A pull
 request verifies Linux and TypeScript: Linux runs the suite in four shards with a separate
 `gates` job alongside the scoped docs, structure, packaging, keyring, and npm-global jobs. The
 `platform-macos` macOS suite, the `widget` macOS widget + Tauri app-bundle build, and the

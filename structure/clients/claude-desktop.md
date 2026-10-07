@@ -1,5 +1,7 @@
 # Claude Desktop Integration
 
+The [fork client scope](../fork-client-scope.md) preserves cold Copilot date-slot routing and refreshes Desktop profiles and Claude Code caches on sync. Expanded upstream date slots and non-date wire aliases retain route identity; an old Fable slot never implies an Opus version.
+
 Native result continuations and function-result injection follow [the mode-specific result and control contract](../transports/streaming-health.md#experimental-native-function-result-injection); this surface does not infer upstream support or alter its defaults.
 Explicit Codex CLI installation observation does not launch or reconfigure a desktop client. See the [read-only observation contract](../runtime.md#explicit-codex-cli-installation-observation).
 

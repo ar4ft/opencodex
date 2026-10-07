@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
-const workflow = readFileSync(join(import.meta.dir, "../.github/workflows/tag-release.yml"), "utf8");
+import { repoPath } from "../helpers/repo-root";
+
+const workflow = readFileSync(repoPath(".github", "workflows", "tag-release.yml"), "utf8");
 
 function runBlock(step: string): string {
   const lines = workflow.split("\n");

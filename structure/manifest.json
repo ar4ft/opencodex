@@ -643,6 +643,7 @@
       "tier": 1,
       "scope": "Fork native-client exclusion and Grok/Claude sync.",
       "documents": [
+        "src/client/",
         "src/codex/",
         "src/cli/",
         "src/clients/",

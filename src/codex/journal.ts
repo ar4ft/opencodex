@@ -304,7 +304,7 @@ export function journalOwner(options: { readOnly?: boolean } = {}): JournalOwner
 }
 
 export function restoreJournalState(): RestoreJournalResult {
-  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { configRestored: false, profileRestored: false, configChanged: false, profileChanged: false, complete: true, unverified: false };
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { configRestored: false, profileRestored: false, configChanged: false, profileChanged: false, configRewritten: false, profileRewritten: false, complete: true, unverified: false };
   try { assertCodexHomeOwner(CODEX_HOME); }
   catch (error) {
     if (!(error instanceof CodexHomeOwnerRefusal)) throw error;

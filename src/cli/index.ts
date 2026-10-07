@@ -748,7 +748,7 @@ async function handleStart(options: { block?: boolean } = {}) {
   if (shouldSyncCodexOnStart(loadConfig()) && !siblingStart && !currentExternalCodexModelProvider() && !shouldInjectApiAuthHeader(config) && config.syncResumeHistory !== false) {
     historyGuardian = startHistoryMigrationGuardian();
   }
-  const routingHealerModule = siblingStart ? null : await import("../codex/routing-healer");
+  const routingHealerModule = shouldSyncCodexOnStart(loadConfig()) && !siblingStart ? await import("../codex/routing-healer") : null;
   if (routingHealerModule && !cleaned) routingHealer = routingHealerModule.startCodexRoutingHealer({ port, config }); // `cleaned` read once the import settled
   // Grok Build auto-registration: additive fenced block in ~/.grok/config.toml so an installed
   // grok CLI can pick opencodex-routed models without manual config. No-op when ~/.grok is

@@ -1,5 +1,5 @@
 # Client Integrations
-
+The [fork client scope](../fork-client-scope.md) excludes every native Codex/ChatGPT integration path, including direct connected-client catalog writes in `src/client/connect.ts`. Enabled Grok/Claude sync remains available.
 Shared parsing and streaming follow the [request-copy](../transports/byte-accounting.md#request-copy-accounting) and [stream-buffer accounting](../transports/byte-accounting.md#stream-buffer-accounting) contracts.
 
 The client-integration subsystem writes one generated OpenCodex provider contribution into a

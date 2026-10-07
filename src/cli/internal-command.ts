@@ -16,6 +16,8 @@
  * that same user, and a same-uid process could call `kill` directly. A token here would
  * protect nothing and would imply a boundary that does not exist.
  */
+import { NATIVE_CODEX_CLIENT_SUPPORTED, NATIVE_CLIENT_DISABLED_MESSAGE } from "../codex/native-client-policy";
+
 const USAGE = "Usage: ocx internal desktop-restart-handoff --plan <path> | chatgpt-app-server-filter [--self-test]";
 
 function optionValue(args: readonly string[], name: string): string | undefined {
@@ -25,9 +27,11 @@ function optionValue(args: readonly string[], name: string): string | undefined 
 
 export async function handleInternalCommand(args: readonly string[]): Promise<number> {
   const sub = args[0];
-  if (sub === "chatgpt-app-server-filter") {
-    console.error("Native ChatGPT client integration is disabled in this fork.");
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED && (sub === "desktop-restart-handoff" || sub === "chatgpt-app-server-filter")) {
+    console.error(NATIVE_CLIENT_DISABLED_MESSAGE);
     return 2;
+  }
+  if (sub === "chatgpt-app-server-filter") {
     if (args.length > 2 || (args[1] !== undefined && args[1] !== "--self-test")) {
       console.error(USAGE);
       return 2;
