@@ -19,6 +19,7 @@ import {
   reconcileDesktopProfile,
   renderDesktopProfile,
   validDateAlias,
+  desktopProfileWireAlias,
   type DesktopProfileModel,
 } from "./desktop-profile";
 import { nativeOpenAiContextWindow, type NativeContextLimitsInput } from "../codex/catalog";
@@ -306,6 +307,8 @@ function collectDesktop3pModels(
   for (const [route, assignment] of Object.entries(recovered.assignments)) {
     if (!route.startsWith("anthropic/claude-") && !realAnthropicIds.has(assignment.alias)) {
       registry.set(assignment.alias, route);
+      const wire = desktopProfileWireAlias(assignment.alias);
+      if (!realAnthropicIds.has(wire)) registry.set(wire, route);
     }
   }
   if (models[0]) models[0].isFamilyDefault = true;

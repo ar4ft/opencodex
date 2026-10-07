@@ -16,6 +16,7 @@ export async function refreshDesktopRequestModel(
   model: string,
   discover = fetchAllModels,
 ): Promise<void> {
+  model = model.endsWith("--fast") ? model.slice(0, -"--fast".length) : model;
   if (!isDesktopDateSlot(model) && !/^claude-opus-(?:4-8|4)-(?:[a-z][0-9a-z]{2}|p[0-9a-z]{3})$/.test(model)) return;
   const profileClaim = Object.values(config.claudeCode?.desktopProfile?.assignments ?? {})
     .some(assignment => assignment.alias === model);
