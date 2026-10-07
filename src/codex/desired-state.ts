@@ -7,9 +7,8 @@
  * lasted exactly until the next start. That is the defect this module closes, and
  * it is the same one Grok's shipped toggle still has.
  *
- * ABSENT MEANS ON. A user who never touched a switch, a config written by an
- * older binary, and an explicit `true` are the same state, and none of them may
- * be read as "the user turned this off". Only an explicit `false` is OFF.
+ * This fork excludes native Codex/ChatGPT client integration even when an older
+ * config enables it. Grok and Claude retain their independent persisted switches.
  *
  * This module does NOT own linearization. The plan that predates
  * `src/codex/user-identity.ts` proposed a second per-home lock at
@@ -20,6 +19,7 @@
  *
  * Design record: devlog/_fin/260803_codex_desktop_toggle/030_desired_state.md.
  */
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import { deleteConfigTopLevelKey, loadConfig, mutatePersistedConfig } from "../config";
 import type { OcxClientIntegrationsConfig, OcxConfig } from "../types";
 import { runStartupReadinessSync, type ReadinessGate, type SyncOutcomeLike } from "../server/readiness";
@@ -64,7 +64,7 @@ export function integrationEnabled(
   config: Pick<OcxConfig, "clientIntegrations">,
   client: DurableIntentClientId,
 ): boolean {
-  return config.clientIntegrations?.[client] !== false;
+  return (client !== "codex" || NATIVE_CODEX_CLIENT_SUPPORTED) && config.clientIntegrations?.[client] !== false;
 }
 
 export function codexIntegrationEnabled(config: Pick<OcxConfig, "clientIntegrations">): boolean {
@@ -173,6 +173,7 @@ export function setIntegrationEnabled(
   client: DurableIntentClientId,
   enabled: boolean,
 ): CodexDesiredStateResult {
+  if (client === "codex" && enabled) return { ok: false, reason: "invalid", retryable: false, message: "Native Codex integration is disabled in this fork." };
   const outcome = mutatePersistedConfig(config => {
     const current = integrationEnabled(config, client);
     if (current === enabled) return { changed: false, value: enabled };

@@ -3,6 +3,9 @@ title: Жизненный цикл CLI
 description: Настройка, запуск, остановка, служба, диагностика, sync и update-команды.
 ---
 
+> This page documents upstream behavior. For the ar4ft fork, use [Fork lifecycle](/ru/reference/cli/fork-lifecycle/). Native Codex and ChatGPT client integration is disabled in this fork.
+
+
 Эти команды устанавливают, запускают, проверяют, ремонтируют и обновляют локальный прокси
 opencodex и его интеграцию с Codex.
 

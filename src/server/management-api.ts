@@ -228,6 +228,14 @@ export async function handleManagementAPI(
   sessionControl?: ManagementSessionControl,
   requestIngress: ManagementRequestIngress = { trustedLoopback: false },
 ): Promise<Response | null> {
+  if (url.pathname === "/api/fork-client-policy" && req.method === "GET") {
+    return jsonResponse({ version: 1, nativeClientIntegration: false, clients: ["grok", "claude-code", "claude-desktop"] });
+  }
+
+  if (req.method !== "GET" && ["/api/system/codex-restart", "/api/codex/restart", "/api/codex-log-guard"].some(path => url.pathname.startsWith(path))) {
+    return jsonResponse({ error: "Native Codex and ChatGPT process management is disabled in this fork." }, 409);
+  }
+
   if (!isAllowedManagementOrigin(req, config)) {
     return jsonResponse({ error: "cross-origin request blocked" }, 403, req, config);
   }
@@ -253,6 +261,8 @@ export async function handleManagementAPI(
     }
   }
   async function convergeCodexCatalog(): Promise<CatalogDisposition> {
+    const { NATIVE_CODEX_CLIENT_SUPPORTED } = await import("../codex/native-client-policy");
+    if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { status: "skipped", reason: "not-requested", retryable: false };
     let convergenceInvoked = false;
     let managementConvergeCodex: ConvergeCodex | undefined;
     try {

@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -825,6 +826,7 @@ function resolveCacheKey(deps: ResolveCodexRuntimeDeps): string | null {
  * Resolve the single Codex runtime OpenCodex should use for sync, clamp, and probes.
  */
 export function resolveCodexRuntime(deps: ResolveCodexRuntimeDeps = {}): ResolveCodexRuntimeResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { runtime: { command: "codex", version: null, source: "fallback" }, failures: [] };
   const cacheKey = resolveCacheKey(deps);
   // A deferred selection has no validated version and must not publish into
   // runtime authority. peekCodexRuntimeProcessCache would otherwise report
@@ -869,6 +871,7 @@ let asyncResolveInflight: { key: string; epoch: number; promise: Promise<Resolve
 export async function resolveCodexRuntimeAsync(
   deps: ResolveCodexRuntimeDeps = {},
 ): Promise<ResolveCodexRuntimeResult> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return resolveCodexRuntime(deps);
   // A deferred selection never execs, so the sync path is already nonblocking.
   if (deps.probeVersion === false) return resolveCodexRuntime(deps);
   const cacheKey = resolveCacheKey(deps);

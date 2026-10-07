@@ -618,6 +618,7 @@ export async function syncCatalogModels(
   config: OcxConfig,
   options?: CodexCatalogSyncOptions,
 ): Promise<RetainedCatalogSyncResult> {
+  if (!shouldSyncCodexOnStart(config)) return { added: 0, path: "", catalogWritten: false, comboOmissions: [], skippedReason: "desired_disabled" };
   if (pendingModelSelectionProviders(config).size) {
     const { resolvePendingInitialModelSelection } = await import("../../providers/initial-model-selection-runtime");
     await resolvePendingInitialModelSelection(config);
@@ -667,7 +668,7 @@ export async function syncCatalogModels(
     // of a routed catalog/cache surviving a completed disable. An explicit
     // catalog-only sync opts out of that gate: the user asked for a refresh even
     // when injection is OFF, and the toggle only protects config/history writes.
-    if (!shouldSyncCodexOnStart(loadConfig()) && options?.allowWhenDesiredDisabled !== true) {
+    if (!shouldSyncCodexOnStart(loadConfig())) {
       return {
         added: 0,
         path: prepared.catalogPath,
@@ -728,7 +729,7 @@ export function invalidateCodexModelsCacheWithPermitOutcome(
     // routed cache write — re-read intent under this permit, same as the commit.
     // The catalog-only sync override applies here too so an explicit refresh
     // keeps the cache consistent with the catalog it just wrote.
-    if (!shouldSyncCodexOnStart(loadConfig()) && options?.allowWhenDesiredDisabled !== true) return "desired_disabled";
+    if (!shouldSyncCodexOnStart(loadConfig())) return "desired_disabled";
     const catalogPath = readCodexCatalogPathForHome(owningCodexHome);
     if (!existsSync(catalogPath)) return "missing_catalog";
     const catalog = JSON.parse(readFileSync(catalogPath, "utf8"));
@@ -793,6 +794,7 @@ export function invalidateCodexModelsCacheWithPermit(
 }
 
 export function invalidateCodexModelsCache(options?: CodexCatalogSyncOptions): boolean {
+  if (!shouldSyncCodexOnStart(loadConfig())) return false;
   const owningCodexHome = getCodexHome();
   const outcome = withCatalogWriteSerialization(
     owningCodexHome,

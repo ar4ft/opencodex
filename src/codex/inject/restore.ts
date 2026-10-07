@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED, NATIVE_CLIENT_DISABLED_MESSAGE } from "../native-client-policy";
 import { assertCodexHomeOwner, codexHomeOwnerBlocksCompensation, CodexHomeOwnerRefusal, type CodexHomeOwnerRefusalReason } from "../codex-home-owner";
 import { loadConfig } from "../../config";
 import { shouldSyncCodexOnStart } from "../desired-state";
@@ -504,6 +505,7 @@ function restoreCodexCatalogArtifact(
 export async function restoreNativeCodexAsync(
   options: { revalidateDesiredState?: boolean; removeProviderTable?: boolean } = {},
 ): Promise<CodexNativeRestoreResult> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return skippedRestoreEnvelope(true, NATIVE_CLIENT_DISABLED_MESSAGE);
   const sibling = siblingRestoreSkip();
   if (sibling) return sibling;
   try {
@@ -713,6 +715,7 @@ function homeOwnerRestoreRefusal(error: CodexHomeOwnerRefusal): CodexNativeResto
 export function restoreNativeCodex(
   options: { skipHistory?: boolean; revalidateDesiredState?: boolean; removeProviderTable?: boolean } = {},
 ): CodexNativeRestoreResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return skippedRestoreEnvelope(true, NATIVE_CLIENT_DISABLED_MESSAGE);
   const sibling = siblingRestoreSkip();
   if (sibling) return sibling;
   try {

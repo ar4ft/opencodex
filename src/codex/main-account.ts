@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import { classifyChatgptRefreshFailure, noteChatgptRefreshFailure } from "./chatgpt-refresh-failure";
 import { readBoundedResponseBody } from "../lib/bounded-body";
 import { createHash } from "node:crypto";
@@ -561,6 +562,7 @@ async function resolveMainAccountToken(
 export function getValidMainAccountToken(
   dependencies: NativeMainRefreshDependencies = {},
 ): Promise<{ accessToken: string; chatgptAccountId: string } | null> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return Promise.resolve(null);
   return resolveMainAccountToken(dependencies);
 }
 
@@ -569,6 +571,7 @@ export function forceRefreshMainAccountToken(
   rejectedAccessToken: string,
   dependencies: NativeMainRefreshDependencies = {},
 ): Promise<{ accessToken: string; chatgptAccountId: string } | null> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return Promise.resolve(null);
   return resolveMainAccountToken(dependencies, rejectedAccessToken);
 }
 
@@ -591,6 +594,7 @@ export function getMainAccountPlan(): string | undefined {
 
 /** Read-only main account token from ~/.codex/auth.json, or null when not logged in. */
 export function getMainAccountToken(): { accessToken: string; chatgptAccountId: string } | null {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return null;
   const tokens = readCodexTokens();
   if (!tokens?.access_token) return null;
   return { accessToken: tokens.access_token, chatgptAccountId: tokens.account_id };

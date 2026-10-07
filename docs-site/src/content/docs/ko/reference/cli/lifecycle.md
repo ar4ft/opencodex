@@ -3,6 +3,9 @@ title: CLI 수명 주기
 description: 설정, 시작, 중지, 서비스, 진단, 동기화, 업데이트 명령입니다.
 ---
 
+> This page documents upstream behavior. For the ar4ft fork, use [Fork lifecycle](/ko/reference/cli/fork-lifecycle/). Native Codex and ChatGPT client integration is disabled in this fork.
+
+
 이 명령들은 로컬 opencodex 프록시와 Codex 연동을 설치, 실행, 점검, 복구, 업데이트합니다.
 
 ## 설정

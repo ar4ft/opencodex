@@ -306,7 +306,7 @@ function startServerWithSpendLedgerOwner(port: number | undefined, deps: StartSe
   // After ownership: a second server on the same home is refused above, so the process running
   // this line is the only one appending to usage.jsonl and the only one that may compact it.
   setUsageLedgerRetention(config.usageLedgerMaxBytes);
-  registerCodexCooldownRecoveryProbeWorker(config);
+  if (shouldSyncCodexOnStart(config)) registerCodexCooldownRecoveryProbeWorker(config);
   // Issue #42 Phase 3: opt-in archived auto-cleanup (default OFF). Unref'd hourly
   // tick for daily/weekly; startup evaluation is fire-and-forget after listen.
   // Heavy work runs in a Worker via the single-flight job controller.

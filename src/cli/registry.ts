@@ -167,25 +167,14 @@ export const CLI_COMMANDS: CliCommandEntry[] = [
   },
   {
     name: "sync",
-    usage: "ocx sync [--restart-codex] [--restart-app-server-only]",
-    summary: "Fetch provider models and inject them into Codex config.",
-    details: [
-      "After writing the catalog, warns if long-lived Codex app-server processes are still running.",
-      "--restart-codex restarts the app-servers AND fully quits and relaunches the Codex desktop app on macOS, Linux and Windows, so its model picker re-reads the catalog. It ends live conversations.",
-      "--restart-app-server-only keeps the narrow behaviour: SIGTERM to matching app-server / code-mode-host processes, desktop app left running. It wins over --restart-codex when both are given.",
-      "--restart-desktop-app is a deprecated alias of --restart-codex and prints a notice.",
-    ],
+    usage: "ocx sync",
+    summary: "Refresh provider models and enabled Grok/Claude integrations.",
+    details: ["Native Codex and ChatGPT client files and processes are untouched."],
   },
   {
     name: "sync-cache",
-    usage: "ocx sync-cache [--restart-codex] [--restart-app-server-only]",
-    summary: "Refresh Codex's model cache from the active catalog.",
-    details: [
-      "Warns when Codex app-server processes still hold an in-memory model list.",
-      "--restart-codex restarts the app-servers AND fully quits and relaunches the Codex desktop app on macOS, Linux and Windows, so its model picker re-reads the catalog. It ends live conversations.",
-      "--restart-app-server-only keeps the narrow behaviour: SIGTERM to matching app-server / code-mode-host processes, desktop app left running. It wins over --restart-codex when both are given.",
-      "--restart-desktop-app is a deprecated alias of --restart-codex and prints a notice.",
-    ],
+    usage: "ocx sync-cache",
+    summary: "Alias for provider and Grok/Claude sync.",
   },
   {
     name: "catalog",

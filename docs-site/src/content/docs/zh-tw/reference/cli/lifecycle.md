@@ -3,6 +3,9 @@ title: CLI 生命週期
 description: 安裝、啟動、停止、服務、診斷、同步與更新指令。
 ---
 
+> This page documents upstream behavior. For the ar4ft fork, use [Fork lifecycle](/zh-tw/reference/cli/fork-lifecycle/). Native Codex and ChatGPT client integration is disabled in this fork.
+
+
 這些指令安裝、執行、檢查、修復並更新本機 opencodex 代理及其 Codex 整合。
 
 ## 安裝

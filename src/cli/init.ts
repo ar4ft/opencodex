@@ -2,7 +2,6 @@ import * as readline from "node:readline";
 import { modelSelectionGuidance } from "./model-selection-guidance";
 import { initializeProviderModelSelection } from "../providers/initial-model-selection";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
-import { injectCodexConfig } from "../codex/inject";
 import { classifyOpenAiTierBackup, ConfigMutationLockError, getConfigPath, getDefaultConfig, initializePersistedConfigIfMissing, isValidProviderName, observeInitialConfigState, preserveOpenAiTierRollbackSnapshot } from "../config";
 import { InitialConfigPublicationError } from "../config/initialize";
 import { redactUserPath } from "../lib/redact";
@@ -238,34 +237,7 @@ export async function runInit(): Promise<void> {
     console.log(`\n✅ Config saved to ${redactUserPath(getConfigPath())}`);
     if (oauthHint) console.log(`🔐 Authenticate this provider with:  ocx login ${providerName}`);
 
-    const injectAnswer = await prompt.ask("Inject into Codex config.toml? [Y/n]: ");
-    prompt.throwIfCancelled();
-    if (injectAnswer.trim().toLowerCase() !== "n") {
-      console.log("Fetching available models from provider...");
-      const result = await injectCodexConfig(port, config, {
-        beforeClientWrite: () => prompt.throwIfCancelled(),
-      }).catch(error => {
-        // The injection/lock boundary may wrap the guard's cancellation error.
-        prompt.throwIfCancelled();
-        throw error;
-      });
-      prompt.throwIfCancelled();
-      console.log(result.success ? `✅ ${result.message}` : `⚠️  ${result.message}`);
-    }
-
-    const shimAnswer = await prompt.ask("Install Codex autostart shim? [Y/n]: ");
-    prompt.throwIfCancelled();
-    if (shimAnswer.trim().toLowerCase() !== "n") {
-      try {
-        const { installCodexShim } = await import("../codex/shim");
-        prompt.throwIfCancelled();
-        const result = installCodexShim();
-        console.log(result.installed ? `✅ ${result.message}` : `⚠️  ${result.message}`);
-      } catch (err) {
-        if (err instanceof InitCancelledError) throw err;
-        console.log(`⚠️  Codex autostart shim skipped: ${err instanceof Error ? err.message : String(err)}`);
-      }
-    }
+    console.log("Native Codex and ChatGPT client integration is disabled in this fork.");
 
     console.log(`\n🚀 Setup complete! Run 'ocx start' to start the proxy.`);
     // Said after the autostart choice, because the choice is what decides whether it applies.

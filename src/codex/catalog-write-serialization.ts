@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 /**
  * K — the permanent catalog serialization primitive.
  *
@@ -64,7 +65,7 @@ export interface CatalogWriteOptions {
 
 export type CatalogSerializationOutcome<T> =
   | { kind: "completed"; value: T }
-  | { kind: "unavailable"; reason: "busy" | "database" | "unsafe-path" | "foreign-owner" | "owner-unknown" };
+  | { kind: "unavailable"; reason: "busy" | "database" | "unsafe-path" | "foreign-owner" | "owner-unknown" | "disabled" };
 
 export class CatalogWritePermitRefusal extends Error {
   readonly code = "CODEX_CATALOG_WRITE_PERMIT_REFUSED";
@@ -178,6 +179,7 @@ export function withCatalogWriteSerialization<T>(
   write: (permit: CatalogWritePermit) => T,
   options: CatalogWriteOptions,
 ): CatalogSerializationOutcome<T> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { kind: "unavailable", reason: "disabled" };
   // First, ahead of the owner precheck and its diagnostics: a test process never gets a permit for
   // the real Codex home, whatever its CODEX_HOME resolved to (#6529).
   assertNotRealCodexHomeUnderTest(canonicalCodexHome);

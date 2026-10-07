@@ -796,30 +796,11 @@ export async function handleConfigRoutes(ctx: ManagementContext): Promise<Respon
   }
 
   if (url.pathname === "/api/sync" && req.method === "POST") {
-    const { syncModelsToCodex } = await import("../../codex/sync");
-    const { attachStaleAppServerHint } = await import("../../codex/app-server-processes");
-    const [{ readRuntimePort }, { loadConfig }] = await Promise.all([
-      import("../../config/process-state"),
-      import("../../config"),
-    ]);
-    // Never use the server-captured startup object for a durable integration
-    // decision. A toggle may have persisted while this process was gathering.
+    const { syncProxyClients } = await import("../../clients/sync");
+    const { readRuntimePort } = await import("../../config/process-state");
+    const { loadConfig } = await import("../../config");
     const runtime = readRuntimePort(process.pid);
-    const config = loadConfig();
-    const result = await syncModelsToCodex(runtime?.port, config, null);
-    // A sync used to stop here, so a Grok fence or a Desktop profile kept whatever
-    // context windows it was written with while the Codex catalog moved on. The
-    // startup path already fans out to every enabled client; this is the same fan-out
-    // for the on-demand command. Codex goes first because the others read its catalog.
-    const integrations = result.status === "refused"
-      ? []
-      : await syncEnabledClientIntegrations(runtime?.port, config, deps);
-    const status = result.status === "refused" ? 409 : (result.status === "skipped" || result.ok ? 200 : 500);
-    return jsonResponse({
-      ...attachStaleAppServerHint(result),
-      ...(integrations.length > 0 ? { integrations } : {}),
-      ...(result.ok ? {} : { error: result.message }),
-    }, status);
+    return jsonResponse(await syncProxyClients(runtime?.port ?? config.port, loadConfig()));
   }
 
   if (url.pathname === "/api/update/check" && req.method === "GET") {

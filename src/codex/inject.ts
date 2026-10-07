@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED, NATIVE_CLIENT_DISABLED_MESSAGE } from "./native-client-policy";
 import { closeSync, existsSync, openSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
 import {
@@ -189,6 +190,7 @@ export async function injectCodexConfig(
   config?: OcxConfig,
   options: InjectCodexOptions = {},
 ): Promise<CodexInjectResult> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { success: true, status: "skipped", skippedReason: "desired_disabled", message: NATIVE_CLIENT_DISABLED_MESSAGE };
   // First, before the external-provider branch below removes the SHARED journal: a sibling owns
   // none of this home's routing, not even the courtesy cleanup.
   if (siblingOfLivePort() !== null) {
@@ -208,6 +210,7 @@ async function injectCodexConfigImpl(
   config?: OcxConfig,
   options: InjectCodexOptions = {},
 ): Promise<CodexInjectResult> {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { success: true, status: "skipped", skippedReason: "desired_disabled", message: NATIVE_CLIENT_DISABLED_MESSAGE };
   // Point Codex at the unauthenticated loopback listener when it is enabled (#1102).
   //
   // Resolved here rather than at the call sites because every caller already passes the proxy

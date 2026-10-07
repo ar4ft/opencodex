@@ -140,7 +140,7 @@ import {
   StartOwnershipRollbackUncertainError,
 } from "./start-ownership-publication";
 import { syncModelsToCodex } from "../codex/sync";
-import { localClientSkipReason, shouldSyncGrokOnStart, syncCodexOnStartIfEnabled } from "../codex/desired-state";
+import { shouldSyncCodexOnStart, localClientSkipReason, shouldSyncGrokOnStart, syncCodexOnStartIfEnabled } from "../codex/desired-state";
 import { honorSiblingMarker, markSiblingStart, siblingOfLivePort, siblingRuntimeField, siblingStopFoundOwner, withoutSiblingMarker } from "../codex/sibling-start";
 import { consumeSiblingHandoff } from "../codex/sibling-handoff";
 import {
@@ -646,7 +646,7 @@ async function handleStart(options: { block?: boolean } = {}) {
     }
     removePid(process.pid);
     removeRuntimePort(process.pid);
-    if (teardown.restoreNativeCodex && !currentExternalCodexModelProvider()) {
+    if (shouldSyncCodexOnStart(loadConfig()) && teardown.restoreNativeCodex && !currentExternalCodexModelProvider()) {
       try {
         const restored = restoreNativeCodex();
         if (!restored.success) {
@@ -745,7 +745,7 @@ async function handleStart(options: { block?: boolean } = {}) {
     const { warnIfStaleCodexAppServersAfterStartupWrite } = await import("../codex/app-server-processes");
     warnIfStaleCodexAppServersAfterStartupWrite({ log: console });
   }
-  if (!siblingStart && !currentExternalCodexModelProvider() && !shouldInjectApiAuthHeader(config) && config.syncResumeHistory !== false) {
+  if (shouldSyncCodexOnStart(loadConfig()) && !siblingStart && !currentExternalCodexModelProvider() && !shouldInjectApiAuthHeader(config) && config.syncResumeHistory !== false) {
     historyGuardian = startHistoryMigrationGuardian();
   }
   const routingHealerModule = siblingStart ? null : await import("../codex/routing-healer");

@@ -3,6 +3,9 @@ title: CLI ライフサイクル
 description: セットアップ、開始、停止、サービス、診断、同期、および更新コマンド。
 ---
 
+> This page documents upstream behavior. For the ar4ft fork, use [Fork lifecycle](/ja/reference/cli/fork-lifecycle/). Native Codex and ChatGPT client integration is disabled in this fork.
+
+
 これらのコマンドは、ローカル opencodex プロキシとその Codex 統合をインストール、実行、検査、修復、および更新します。
 
 ## 設定

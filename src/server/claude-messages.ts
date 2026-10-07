@@ -145,6 +145,17 @@ function decodeClaudeFastSelector(raw: string, cc?: OcxConfig["claudeCode"]): st
 }
 
 /** Restore reversible native Claude picker aliases before Anthropic passthrough checks. */
+async function copilotModelMapForRequest(config: OcxConfig, model: string, cc: OcxConfig["claudeCode"]) {
+  try { resolveInboundModel(model, cc); return cc; } catch (error) {
+    if (!(error instanceof DesktopModelMappingUnavailableError)) return cc;
+    const explicit = cc?.modelMap?.[model.replace(/-\d{8}$/, "")];
+    const { resolveCopilotClaudeModel } = await import("../claude/copilot-model");
+    const mapped = typeof explicit === "string" && explicit.length > 0
+      ? explicit : await resolveCopilotClaudeModel(config, model);
+    return mapped === model ? cc : { ...cc, modelMap: { ...cc?.modelMap, [model]: mapped } };
+  }
+}
+
 function decodeNativeClaudePickerAlias(raw: string, cc?: OcxConfig["claudeCode"]): string {
   const decoded = resolveInboundModel(raw, cc);
   if (!decoded.startsWith("claude-")) return raw;
@@ -864,7 +875,7 @@ async function handleClaudeMessagesWithBudget(
     return disabled;
   }
   // Model resolution reads this view; every other claudeCode setting keeps reading `config`.
-  const cc = claudeCodeForIngress(config.claudeCode, ingress.claudeIntercept === true);
+  let cc = claudeCodeForIngress(config.claudeCode, ingress.claudeIntercept === true);
 
   let anthropicBody: unknown;
   let internalBody: Rec;
@@ -896,6 +907,7 @@ async function handleClaudeMessagesWithBudget(
       }
     }
     if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
+      cc = await copilotModelMapForRequest(config, anthropicBody.model, cc);
       anthropicBody.model = decodeNativeClaudePickerAlias(anthropicBody.model, cc);
     }
     if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
@@ -1011,6 +1023,8 @@ async function handleClaudeMessagesWithBudget(
     }
     const translation = messagesToResponsesTranslation(anthropicBody, cc, translatorBudget);
     internalBody = translation.body;
+    const { resolveCopilotClaudeModel } = await import("../claude/copilot-model");
+    internalBody.model = await resolveCopilotClaudeModel(config, internalBody.model as string);
     // The Anthropic translator builds its body from model/input/store/stream plus sampling
     // fields only, so the caller intent is applied to the TRANSLATED body rather than the
     // inbound one.
@@ -1642,7 +1656,7 @@ export async function handleClaudeCountTokens(
 ): Promise<Response> {
   const disabled = claudeInboundDisabled(config);
   if (disabled) return disabled;
-  const cc = claudeCodeForIngress(config.claudeCode, ingress.claudeIntercept === true);
+  let cc = claudeCodeForIngress(config.claudeCode, ingress.claudeIntercept === true);
 
   let body: unknown;
   const translatorBudget = createTranslatorBudget();
@@ -1674,6 +1688,7 @@ export async function handleClaudeCountTokens(
       model = stripOneMillionMarker(countRoute);
       raw.model = model;
     }
+    cc = await copilotModelMapForRequest(config, model, cc);
     model = decodeNativeClaudePickerAlias(model, cc);
     raw.model = model;
     // Fast-only: count_tokens never parsed an effort row, so it must not start. It returns a

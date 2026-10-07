@@ -313,6 +313,7 @@ const commandRunners: Record<string, CommandRunner> = {
   },
   doctor: async deps => {
     const doctorArgs = deps.args.slice(1);
+    if (doctorArgs.some(arg => arg.startsWith("--fix-codex") || arg === "--recover-zero-byte-coordinator")) return 2;
     // `--json` was silently ignored here: runDoctor scans for its own flags and prints human
     // output regardless, so a caller that asked for JSON got prose and exit 0 -- and the skill
     // recipes recommended exactly that invocation. Refusing it is worse than supporting it and
@@ -384,107 +385,38 @@ const commandRunners: Record<string, CommandRunner> = {
     return handleLogoutCommand(deps.args.slice(1), { findLiveProxy: deps.findLiveProxy });
   },
   sync: async deps => {
-    const syncArgs = deps.args.slice(1);
-    const restartScope = readRestartScope(syncArgs, console);
-    // The wire field keeps APP-SERVER-ONLY meaning and is deliberately not widened. A
-    // remote hub must not end a local user's conversations because a field name acquired
-    // a wider meaning underneath it; the maintainer decision widened a local CLI flag and
-    // said nothing about remote callers. syncConnectedClient ignores it either way.
-    const restartCodex = restartScope.appServers;
-    const { readClientConnectionState } = await import("../client/state");
-    const clientState = readClientConnectionState();
-    if (clientState.kind === "invalid" || clientState.kind === "mismatched") {
-      console.error(`Client state is ${clientState.kind}: ${clientState.reason}`);
-      return 1;
+    if (deps.args.slice(1).some(arg => arg !== "--restart-codex" && arg !== "--restart-desktop-app" && arg !== "--restart-app-server-only")) {
+      console.error("Usage: ocx sync");
+      return 2;
     }
-    if (clientState.kind === "connected") {
-      try {
-        const { syncConnectedClient } = await import("../client/connect");
-        const result = await syncConnectedClient({ restartCodex });
-        console.log(result.stale
-          ? "Hub unavailable; retained and applied the last-known-good remote catalog (stale)."
-          : "Remote hub catalog synchronized.");
-        await handleConnectedSyncCatalogWrite(result, restartScope);
-        // `process.exitCode` rather than a literal 0, for the same reason every other
-        // runner does it (tests/cli/cli-transport-honesty.test.ts): the catalog-write helper
-        // drives app-server restarts, and one of those recording a failure must not be
-        // erased by the value this runner returns. It reads 0 on the ordinary path. Node
-        // types it as `number | string`; only a numeric code means anything here.
-        return typeof process.exitCode === "number" ? process.exitCode : 0;
-      } catch (error) {
-        // The refresh path reaches the same hub catalog `ocx connect` validates, so a rejected
-        // reasoning level arrives here as hub-supplied text. Rendering it through the shared
-        // terminal boundary is what keeps the routine refresh from forging output; the domain
-        // error itself is left alone for callers that inspect it.
-        console.error(`Connected sync failed without local fallback: ${terminalSafeError(error).message}`);
-        return 1;
-      }
-    }
-    const live = await deps.findLiveProxy();
-    const synced = await syncModelsToCodex(
-      live?.port,
-      undefined,
-      undefined,
-      undefined,
-      { catalogEvenWhenNotInjected: true },
-    );
-    let code = 0;
-    if (synced.status === "skipped") {
-      console.log(synced.skippedReason === "hub-gated"
-        ? `${HUB_GATED_SKIP_MESSAGE} sync skipped and no Codex files changed.`
-        : "Codex integration is OFF; sync skipped and no Codex files changed.");
-    } else if (synced.status === "catalog-only") {
-      // Explicit sync with the integration OFF still refreshes the catalog/cache
-      // for side profiles that consume the proxy without injection.
-      console.log(synced.message ?? "Codex integration is OFF; catalog refreshed, Codex config untouched.");
-      if (!synced.ok) code = 1;
-    } else if (!synced.ok) {
-      code = 1;
-      console.error("Codex sync did not complete. Fix the reported Codex config issue and retry.");
-    }
-    // Only warn/restart when a catalog or models_cache write actually happened. This is
-    // deliberately not an `else`: refreshCodexModelCatalog runs before injectCodexConfig,
-    // so a sync can fail (`ok: false`) after the catalog was already rewritten — which is
-    // exactly when a long-lived app-server is holding the stale list.
-    if (synced.catalogWritten || synced.cacheSynced) {
-      await handleRestartScopeAfterWrite(restartScope, console);
-    }
-    // `ocx sync` is a direct CLI path; it does not call the management
-    // `/api/sync` route. Refresh already-connected file integrations here too,
-    // after Codex has published the catalog that supplies its capabilities.
-    if (synced.status !== "refused") {
-      const results: OwnedIntegrationRefreshOutcome[] = [];
+    try {
+      const live = await deps.findLiveProxy();
       if (live) {
+        const { runtimeRequest } = await import("./runtime-api");
+        let policy: { version?: number; nativeClientIntegration?: boolean };
         try {
-          const config = deps.loadConfig();
-          const { refreshOwnedCatalogIntegrations } = await import("../integrations/catalog-refresh");
-          results.push(...await refreshOwnedCatalogIntegrations({
-            models: async () => {
-              const { loadExportModels } = await import("../server/management/model-rows");
-              return loadExportModels(config);
-            },
-            config,
-            port: live.port,
-          }, ["mcode", "pi", "raycast", "omo", "cline", "droid", "opencode", "kilo"]));
-        } catch (error) {
-          console.warn(`Client integrations were not refreshed: ${error instanceof Error ? error.message : String(error)}`);
+          policy = await runtimeRequest("/api/fork-client-policy", {}, { baseUrl: `http://${deps.probeHostname(live.hostname)}:${live.port}` });
+        } catch {
+          throw Error("Running proxy predates native-client isolation; start a new proxy with this release before syncing.");
+        }
+        if (policy.version !== 1 || policy.nativeClientIntegration !== false) {
+          throw Error("Running proxy has no native-client isolation policy; sync refused.");
         }
       }
-      // Even without a live proxy, report why Aside could not sync. Its server
-      // owner is never bypassed, and another client's failure cannot hide it.
-      try {
-        const { refreshAsideProfilesThroughServer } = await import("./aside-profiles");
-        results.push(...await refreshAsideProfilesThroughServer({ findLiveProxy: async () => live }));
-      } catch (error) {
-        console.warn(`Aside profiles were not refreshed: ${error instanceof Error ? error.message : String(error)}`);
+      const result = live
+        ? await (await import("./runtime-api")).runtimeRequest<{ message: string; integrations: Array<{ client: string; ok: boolean; reason?: string }> }>(
+            "/api/sync", { method: "POST" }, { baseUrl: `http://${deps.probeHostname(live.hostname)}:${live.port}` })
+        : await (await import("../clients/sync")).syncProxyClients(undefined, deps.loadConfig());
+      console.log(result.message);
+      for (const integration of result.integrations) {
+        if (!integration.ok) console.warn(`${integration.client}: ${integration.reason ?? "refresh failed"}`);
       }
-      for (const result of results) {
-        const label = result.profileId === undefined ? result.client : `${result.client}:${result.profileId}`;
-        if (result.changed) console.log(`${label} integration refreshed from the current catalog.`);
-        else if (result.reason) console.warn(`${label} integration was not refreshed: ${result.reason}${result.residual ? " Recovery did not finish." : ""}${result.snapshotPath ? ` Backup: ${result.snapshotPath}` : ""}`);
-      }
+      if (!live) console.log("Start the proxy to refresh enabled Grok/Claude integrations.");
+      return result.integrations.some(integration => !integration.ok) ? 1 : 0;
+    } catch (error) {
+      console.error(`Provider sync failed: ${error instanceof Error ? error.message : String(error)}`);
+      return 1;
     }
-    return code;
   },
   v2: async deps => {
     const { cmdV2 } = await import("./v2");
@@ -510,89 +442,7 @@ const commandRunners: Record<string, CommandRunner> = {
     const { handleCatalogCommand } = await import("./catalog");
     return await handleCatalogCommand(deps.args.slice(1));
   },
-  "sync-cache": async deps => {
-    const cacheArgs = deps.args.slice(1);
-    const restartScope = readRestartScope(cacheArgs, console);
-    const { withCatalogWriteSerialization } = await import("../codex/catalog-write-serialization");
-    const { invalidateCodexModelsCacheWithPermitOutcome } = await import("../codex/catalog/sync");
-    const { getCodexHome } = await import("../codex/paths");
-    const owningCodexHome = getCodexHome();
-    const cacheGateSnapshot = deps.loadConfig();
-    const desiredDisabled = !shouldSyncCodexOnStart(cacheGateSnapshot);
-    const invalidated = withCatalogWriteSerialization(owningCodexHome, permit =>
-      invalidateCodexModelsCacheWithPermitOutcome(permit, owningCodexHome, { allowWhenDesiredDisabled: true }),
-    { intent: "cache", writer: "sync-cache" });
-    const cacheJson = cacheArgs.includes("--json");
-    const jsonSafeLog = cacheJson
-      ? { log: (...values: unknown[]) => console.error(...values), error: (...values: unknown[]) => console.error(...values) }
-      : console;
-    // Only warn/restart when models_cache was actually rewritten from a readable catalog.
-    if (invalidated.kind === "completed" && invalidated.value === "written") {
-      await handleRestartScopeAfterWrite(restartScope, jsonSafeLog);
-    } else if (!cacheJson && invalidated.kind === "completed" && invalidated.value === "desired_disabled") {
-      // Only when the OFF gate itself stopped the write does OFF explain the outcome. An
-      // explicit sync-cache refreshes regardless of the toggle, so an unchanged cache, a
-      // missing catalog, or a contended writer is reported below on its own terms.
-      // Under --json this belongs on the envelope, not as a second stdout line.
-      console.log(localClientSkipMessage(
-        cacheGateSnapshot,
-        "Codex integration is OFF; no catalog or cache write resulted.",
-        "No catalog or cache write resulted.",
-      ));
-    }
-    // An identical cache is a successful no-op, not a failed refresh. Only a real write
-    // should restart Codex; a missing catalog or contended writer is also a benign skip.
-    //
-    // Losing the catalog write lock to another process is a skip, not a failure:
-    // serialization working as designed is the expected outcome under concurrency, and a
-    // proxy startup holding the permit would otherwise make a perfectly healthy
-    // `ocx sync-cache` exit 1 and fail the pipeline that called it -- intermittently, so it
-    // would read as a flake rather than a bug. `codex-retained-root-serialization.test.ts`
-    // pins exactly that: contended lock, no cache write, exit 0.
-    //
-    // `desiredDisabled` is deliberately NOT part of the success test, which is the subtle
-    // part. This call passes `allowWhenDesiredDisabled: true`, so the OFF gate inside the
-    // refresh never fires and the work is genuinely attempted -- an explicit `ocx sync-cache`
-    // means the user asked for it regardless of the toggle. Treating OFF as automatic success
-    // would report exit 0 and `skipped: true` for a refresh that actually failed.
-    //
-    // The detailed outcome distinguishes an unchanged cache from a failed rewrite while
-    // the boolean wrapper remains available to callers that only care whether bytes changed.
-    const wrote = invalidated.kind === "completed" && invalidated.value === "written";
-    const unchanged = invalidated.kind === "completed" && invalidated.value === "unchanged";
-    const contended = invalidated.kind === "unavailable" && invalidated.reason === "busy";
-    const noCatalog = invalidated.kind === "completed" && invalidated.value === "missing_catalog";
-    const ok = wrote || unchanged || contended || noCatalog;
-    if (cacheJson) {
-      console.log(JSON.stringify({
-        schemaVersion: 1,
-        ok,
-        wrote,
-        skipped: unchanged || contended || noCatalog,
-        outcome: invalidated.kind,
-        // `outcome` alone cannot separate a contended lock from a hard serialization
-        // failure -- both are `unavailable`. Carry the reason so a caller can.
-        reason: invalidated.kind === "unavailable" ? invalidated.reason : undefined,
-        // Which of the three benign skips this was, so `skipped: true` is never opaque.
-        skippedReason: unchanged ? "unchanged" : contended ? "contended" : noCatalog ? "no_catalog" : undefined,
-        desiredDisabled,
-        codexHome: owningCodexHome,
-      }, null, 2));
-    } else if (contended) {
-      console.log("Another process owns the catalog write; cache sync skipped.");
-    } else if (noCatalog) {
-      console.log("No Codex catalog to derive a cache from; nothing to sync.");
-    } else if (unchanged) {
-      console.log("Codex model cache is already current; nothing to sync.");
-    } else if (invalidated.kind === "unavailable"
-      && (invalidated.reason === "foreign-owner" || invalidated.reason === "owner-unknown")) {
-      const { FOREIGN_CODEX_HOME_OWNER_MESSAGE, UNKNOWN_CODEX_HOME_OWNER_MESSAGE } = await import("../codex/catalog/routed-removal");
-      console.error(invalidated.reason === "foreign-owner" ? FOREIGN_CODEX_HOME_OWNER_MESSAGE : UNKNOWN_CODEX_HOME_OWNER_MESSAGE);
-    } else if (!ok) {
-      console.error(`Cache refresh did not complete (${invalidated.kind}). The Codex model cache was not rewritten.`);
-    }
-    return ok ? 0 : 1;
-  },
+  "sync-cache": async deps => commandRunners.sync(deps),
   gui: async deps => {
     const { runGuiCommand } = await import("./gui");
     return runGuiCommand(deps.args.slice(1), {
@@ -1140,6 +990,10 @@ export async function dispatchCommand(head: CliHead, deps: CliDispatchDeps): Pro
   if (command === undefined || command === "help" || command === "--help" || command === "-h") {
     printUsage();
     return 0;
+  }
+  if (["restore", "recover-history", "codex-shim", "codex-log-guard", "chatgpt", "connect", "disconnect", "catalog"].includes(resolveDispatchCommand(command) ?? command)) {
+    console.error("Native Codex and ChatGPT client integration is disabled in this fork.");
+    return 2;
   }
   if (command === "internal") {
     // Routed here rather than as a runner key so it stays out of DISPATCH_COMMANDS and

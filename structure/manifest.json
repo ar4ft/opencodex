@@ -208,16 +208,16 @@
       ]
     },
     {
-        "path": "transports/policy-fallback.md",
-        "tier": 3,
-        "title": "Policy Candidate Fallback",
-        "scope": "Original policy authorization, concrete candidate retries and physical destination deduplication.",
-        "documents": [
-          "src/server/"
-        ]
-      },
-      {
-        "path": "transports/responses-spend.md",
+      "path": "transports/policy-fallback.md",
+      "tier": 3,
+      "title": "Policy Candidate Fallback",
+      "scope": "Original policy authorization, concrete candidate retries and physical destination deduplication.",
+      "documents": [
+        "src/server/"
+      ]
+    },
+    {
+      "path": "transports/responses-spend.md",
       "tier": 3,
       "title": "Responses Spend Reservations",
       "scope": "Credential-hop and durable spend reservations, and what a spent budget tells the client.",
@@ -290,7 +290,9 @@
       "tier": 4,
       "title": "Anthropic Account Thresholds",
       "scope": "Account-owned usage thresholds, inheritance, routing boundaries and durable policy changes.",
-      "documents": ["src/oauth/"]
+      "documents": [
+        "src/oauth/"
+      ]
     },
     {
       "path": "providers-and-adapters.md",
@@ -635,6 +637,19 @@
       "documents": [
         "tests/"
       ]
+    },
+    {
+      "path": "fork-client-scope.md",
+      "tier": 1,
+      "scope": "Fork native-client exclusion and Grok/Claude sync.",
+      "documents": [
+        "src/codex/",
+        "src/cli/",
+        "src/clients/",
+        "src/claude/",
+        "src/server/"
+      ],
+      "title": "Fork client scope"
     }
   ],
   "contracts": {

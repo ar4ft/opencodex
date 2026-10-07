@@ -206,7 +206,7 @@ function rememberCodexToggle(desiredEnabled: boolean, state: NativeStatus["state
 }
 
 function codexStatus(config: ManagementContext["config"], configPath: string): NativeStatus {
-  const desiredEnabled = config.clientIntegrations?.codex !== false;
+  const desiredEnabled = false;
   const reported = codexLastToggle?.desiredEnabled === desiredEnabled ? codexLastToggle.state : null;
   return {
     clientId: "codex",
@@ -953,6 +953,7 @@ export async function handleNativeIntegrationRoutes(ctx: ManagementContext): Pro
   }
 
   if (url.pathname === "/api/native-integrations/codex" && req.method === "PUT") {
+    return jsonResponse({ error: "Native Codex client integration is disabled in this fork." }, 409);
     return handleCodexToggle(ctx);
   }
 

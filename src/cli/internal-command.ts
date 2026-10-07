@@ -26,6 +26,8 @@ function optionValue(args: readonly string[], name: string): string | undefined 
 export async function handleInternalCommand(args: readonly string[]): Promise<number> {
   const sub = args[0];
   if (sub === "chatgpt-app-server-filter") {
+    console.error("Native ChatGPT client integration is disabled in this fork.");
+    return 2;
     if (args.length > 2 || (args[1] !== undefined && args[1] !== "--self-test")) {
       console.error(USAGE);
       return 2;

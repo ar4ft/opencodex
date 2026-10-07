@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import type { OcxConfig } from "../types";
 import { resolvePendingInitialModelSelection } from "../providers/initial-model-selection-runtime";
 import { captureCatalogAdmissionSnapshot } from "./catalog-admission";
@@ -147,6 +148,9 @@ export function createManagementConvergeCodex(
 ): ConvergeCodex {
   const retainedConfig = config;
   return async request => {
+    if (!NATIVE_CODEX_CLIENT_SUPPORTED) return projectCatalogOnlyOutcome({
+      changed: false, catalogRefresh: { status: "skipped", reason: "not-requested", retryable: false },
+    });
     let commitBegan = false;
     try {
       if (request.scope !== "catalog" || request.action !== "converge") {

@@ -1,3 +1,4 @@
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "./native-client-policy";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
@@ -152,6 +153,7 @@ export interface WriteJournalOptions {
  * plugins, model choice, and trusted projects.
  */
 export function writeJournal(options: WriteJournalOptions = {}): void {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return;
   assertCodexHomeOwner(CODEX_HOME);
   if (!existsSync(CODEX_CONFIG_PATH)) return;
   const config = options.configContent ?? readFileSync(CODEX_CONFIG_PATH, "utf-8");
@@ -200,6 +202,7 @@ export function markJournalInjectedState(
   profile: string | null,
   ownership: InjectedJournalOwnership,
 ): void {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return;
   assertCodexHomeOwner(CODEX_HOME);
   const inspection = readCodexHomeJournal(JOURNAL_PATH);
   if (inspection.kind === "unknown") throw new CodexHomeOwnerRefusal("owner-unknown");
@@ -257,6 +260,7 @@ export function journaledInjectedCatalogPath(): string | null {
 }
 
 export function removeJournal(): void {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return;
   assertCodexHomeOwner(CODEX_HOME);
   try { unlinkSync(JOURNAL_PATH); } catch { /* ignore */ }
 }
@@ -296,6 +300,7 @@ export function journalOwner(options: { readOnly?: boolean } = {}): JournalOwner
 }
 
 export function restoreJournalState(): RestoreJournalResult {
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED) return { configRestored: false, profileRestored: false, configChanged: false, profileChanged: false, complete: true, unverified: false };
   try { assertCodexHomeOwner(CODEX_HOME); }
   catch (error) {
     if (!(error instanceof CodexHomeOwnerRefusal)) throw error;

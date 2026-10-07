@@ -419,7 +419,7 @@ export const OBSERVE_SYSTEM_CAPABILITIES: readonly Capability[] = [
     details: ["Runs against the serving proxy; inspect the returned saved/applied or failure result."],
   },
   {
-    command: ["system", "sync"], summary: "Synchronize client catalogs and configuration.",
+    command: ["system", "sync"], summary: "Refresh provider models and enabled Grok/Claude integrations.",
     usage: "ocx system sync [--json]",
     routes: [{"method": "POST", "path": "/api/sync"}],
     flags: [{"name": "--json", "value": "boolean", "summary": "Emit the result as JSON."}],
