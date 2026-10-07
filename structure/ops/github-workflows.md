@@ -12,6 +12,12 @@ The default channel includes prereleases; `--stable` requires API-confirmed stab
 Version metadata is embedded through `src/lib/package-version.ts`, so compiled binaries require
 no adjacent package manifest. The npm package also exposes the `oxc` alias.
 
+`update-pre` selects the newest API-classified GitHub prerelease, skipping stable and draft
+releases. Installed wrappers update their owned prefix; `src/update/github-prerelease.ts` also
+bootstraps standalone installation from npm/source or a raw binary. The prerelease channel fails
+closed when classification is unavailable. Unsigned binaries still require checksum and startup
+verification. Help and invalid CLI arguments perform no download.
+
 ## Parent workflow inventory
 
 The PR-target resolver accepts commit-index candidates only when their base repository's

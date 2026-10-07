@@ -267,6 +267,11 @@ when running a downloaded installer. Repeating the installer updates atomically 
 The default selects the newest published release, including prereleases. npm installs below
 continue using npm for updates.
 
+Run `ocx update-pre` (or `oxc update-pre`) to install the newest published GitHub prerelease
+binary on Linux/macOS. It skips stable releases and verifies SHA-256 before replacement.
+Existing standalone installations update in place; npm/source users bootstrap the standalone
+commands under `~/.oxc` and can activate them with `. "$HOME/.oxc/env"`.
+
 ```bash
 npm install -g @bitkyc08/opencodex
 ocx start     # or `ocx service`

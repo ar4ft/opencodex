@@ -67,6 +67,7 @@ Usage:
                               (hub only; see \`ocx help hub\` for the one-port topology)
   ocx link <sub>              Machine links over SSH (port|issue|revoke|status)
   ocx update [--tag <tag>]    Update opencodex (keeps preview installs on @preview)
+  ocx update-pre              Install the latest GitHub prerelease binary (Linux/macOS)
   ocx restart                  Stop and restart the proxy
   ocx v2 <sub>                multi_agent_v2 surface (status|on|off|mode|keep-native-v1|threads|mode-hint)
   ocx health [--json]          Check proxy health (exit 0=healthy, 1=not)

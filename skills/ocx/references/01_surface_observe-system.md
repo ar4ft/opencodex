@@ -8,7 +8,7 @@
 Use these declarations to choose a task, then check its flags and authority before execution.
 Non-mutating probes may still contact providers, consume quota or refresh caches.
 
-Declared capabilities: 92.
+Declared capabilities: 93.
 
 ### `ocx companion`
 
@@ -436,6 +436,25 @@ JSON mode: `payload`.
 - `sync --restart-codex` is not a substitute: it restarts only as a side effect after a catalog or cache write, so it cannot restart a healthy install on request.
 - Restarts the Codex desktop app as well as the app-servers, through the same module the CLI uses. When the proxy itself runs inside the Codex app it refuses instead, because restarting the app would kill the request.
 - --yes is mandatory because this interrupts a running editor session and may discard unsaved composer drafts, model-picker selections, and pending approval prompts; it must never happen because an agent guessed a subcommand.
+
+### `ocx update-pre`
+
+Usage: `ocx update-pre [--no-modify-path]`
+
+Install the newest GitHub prerelease binary on Linux/macOS, verified by SHA-256.
+
+State-changing: yes.
+
+Drives no management route.
+
+| Flag | Value | Meaning |
+|---|---|---|
+| `--no-modify-path` | boolean | Leave shell profiles unchanged. |
+
+JSON mode: `none`.
+
+- Standalone installations update in place; npm/source invocations install standalone aliases under OXC_INSTALL_DIR or ~/.oxc.
+- Skips stable releases and drafts. Unsigned assets require verified checksums. Restart a running proxy afterwards.
 
 ### `ocx logs filter`
 

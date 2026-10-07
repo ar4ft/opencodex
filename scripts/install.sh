@@ -70,16 +70,22 @@ main() {
                 [ "$#" -ge 2 ] || fail "$1 requires a value"
                 case "$1" in --version) oxc_version=$2;; --prefix) oxc_prefix=$2;; esac
                 shift 2;;
-            --stable) oxc_channel=stable; shift;;
+            --stable)
+                [ "$oxc_channel" != prerelease ] || fail '--stable and --prerelease cannot be combined'
+                oxc_channel=stable; shift;;
+            --prerelease)
+                [ "$oxc_channel" != stable ] || fail '--stable and --prerelease cannot be combined'
+                oxc_channel=prerelease; shift;;
             --no-modify-path) oxc_modify_path=false; shift;;
             --help|-h)
                 cat <<'HELP'
-Usage: install.sh [--version VERSION] [--stable] [--prefix ABSOLUTE_PATH] [--no-modify-path]
+Usage: install.sh [--version VERSION] [--stable|--prerelease] [--prefix ABSOLUTE_PATH] [--no-modify-path]
 
 Install or update the standalone opencodex binary from ar4ft/opencodex.
 Commands: oxc, ocx, opencodex. Default prefix: ~/.oxc (OXC_INSTALL_DIR).
 Default version: newest published release, including prereleases.
 --stable selects a production release; --version pins a bare or v-prefixed tag.
+--prerelease selects the newest published GitHub prerelease, skipping stable releases.
 OXC_VERSION also selects a version. No sudo, Node, npm or Bun installation needed.
 Rerun this installer or use oxc update to update. Updates keep the previous binary.
 HELP
@@ -120,6 +126,7 @@ HELP
     oxc_api=https://api.github.com/repos/ar4ft/opencodex/releases
     if [ "$oxc_version" = latest ]; then
         if [ "$oxc_channel" = stable ]; then oxc_metadata_url=$oxc_api/latest
+        elif [ "$oxc_channel" = prerelease ]; then oxc_metadata_url=$oxc_api'?per_page=100'
         else oxc_metadata_url=$oxc_api'?per_page=20'; fi
     else oxc_metadata_url=$oxc_api/tags/$oxc_version; fi
     oxc_metadata_ok=false
@@ -130,9 +137,10 @@ HELP
     fi
     if [ "$oxc_metadata_ok" = true ]; then
         releases "$oxc_tmp/release.json" > "$oxc_tmp/releases" || fail 'invalid GitHub release metadata'
-        oxc_release=$(awk -F '|' '$3 == "false" && ($2 == "true" || $2 == "false") {print; exit}' "$oxc_tmp/releases")
+        oxc_release=$(awk -F '|' -v channel="$oxc_channel" '$3 == "false" && ($2 == "true" || $2 == "false") && (channel != "prerelease" || $2 == "true") {print; exit}' "$oxc_tmp/releases")
     else
         [ "$oxc_channel" != stable ] || fail 'production release metadata unavailable; refusing to weaken --stable'
+        [ "$oxc_channel" != prerelease ] || fail 'prerelease metadata unavailable; refusing to weaken --prerelease'
         if [ "$oxc_version" != latest ]; then
             # A caller-selected tag needs no feed discovery. Probe both tag conventions
             # so old pinned releases remain usable during an API outage.
@@ -159,7 +167,7 @@ HELP
             [ -n "$oxc_release" ] || fail 'no matching release with standalone assets found'
         fi
     fi
-    [ -n "$oxc_release" ] || fail 'no published release found'
+    [ -n "$oxc_release" ] || fail "no published $oxc_channel release found"
     oxc_tag=${oxc_release%%|*}
     printf '%s\n' "$oxc_tag" | LC_ALL=C grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$' || fail 'invalid release tag'
     [ "$oxc_version" = latest ] || [ "${oxc_tag#v}" = "${oxc_version#v}" ] || fail 'release metadata version mismatch'
@@ -192,12 +200,13 @@ HELP
     {
         printf '#!/bin/sh\nset -eu\noxc_prefix='; quote "$oxc_prefix"; printf '\n'
         cat <<'WRAPPER'
-if [ "${1:-}" = update ]; then
+if [ "${1:-}" = update ] || [ "${1:-}" = update-pre ]; then
+    oxc_update_command=$1
     shift
     # Help must not download or modify anything.
     for oxc_arg in "$@"; do
         case "$oxc_arg" in --help|-h)
-            printf 'Usage: oxc update [--version VERSION] [--stable] [--no-modify-path]\n'
+            printf 'Usage: oxc %s [--version VERSION] [--stable|--prerelease] [--no-modify-path]\n' "$oxc_update_command"
             exit 0;; esac
     done
     # The updater always owns this prefix; reject attempts to silently switch it.
@@ -212,7 +221,11 @@ if [ "${1:-}" = update ]; then
         --tlsv1.2 --connect-timeout 15 --max-time 300 --retry 2 \
         https://raw.githubusercontent.com/ar4ft/opencodex/refs/heads/main/scripts/install.sh \
         -o "$oxc_update_tmp/install.sh"
-    OXC_VERSION=latest sh "$oxc_update_tmp/install.sh" --prefix "$oxc_prefix" "$@"
+    if [ "$oxc_update_command" = update-pre ]; then
+        OXC_VERSION=latest sh "$oxc_update_tmp/install.sh" --prerelease --prefix "$oxc_prefix" "$@"
+    else
+        OXC_VERSION=latest sh "$oxc_update_tmp/install.sh" --prefix "$oxc_prefix" "$@"
+    fi
     exit $?
 fi
 exec "$oxc_prefix/lib/opencodex" "$@"

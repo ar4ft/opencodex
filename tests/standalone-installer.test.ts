@@ -109,6 +109,50 @@ describe.skipIf(process.platform === "win32")("standalone POSIX installer", () =
     expect(f.command("oxc", ["--version"]).stdout.trim()).toBe("fixture-v1");
   }));
 
+  test("all update-pre aliases select the newest published prerelease ahead of an older preview and skip stable/draft releases", () => fixture(f => {
+    expect(f.install().status).toBe(0);
+    const requests = readFileSync(join(f.root, "requests"), "utf8");
+    expect(f.command("ocx", ["update-pre", "--help"]).status).toBe(0);
+    expect(readFileSync(join(f.root, "requests"), "utf8")).toBe(requests);
+    writeFileSync(join(f.root, "metadata"), JSON.stringify([
+      { tag_name: "0.0.11", draft: false, prerelease: false },
+      { tag_name: "0.0.12-preview.1", draft: true, prerelease: true },
+      { tag_name: "0.0.10-preview.2", draft: false, prerelease: true },
+      { tag_name: "0.0.10-preview.1", draft: false, prerelease: true },
+    ]));
+    for (const alias of ["oxc", "ocx", "opencodex"]) {
+      const updated = f.command(alias, ["update-pre", "--no-modify-path"], { OXC_VERSION: "0.0.9" });
+      expect(updated.status, updated.stderr).toBe(0);
+      expect(readFileSync(join(f.prefix, "install-receipt"), "utf8")).toContain("version=0.0.10-preview.2\n");
+    }
+    expect(f.command("oxc", ["update-pre", "--stable"]).status).toBe(1);
+    expect(f.command("oxc", ["update-pre"], { TEST_API_DOWN: "true" }).status).toBe(1);
+    expect(readFileSync(join(f.prefix, "install-receipt"), "utf8")).toContain("version=0.0.10-preview.2\n");
+    writeFileSync(join(f.root, "metadata"), JSON.stringify({ tag_name: "0.0.11", draft: false, prerelease: false }));
+    expect(f.command("oxc", ["update-pre"]).status).toBe(1);
+    expect(readFileSync(join(f.prefix, "install-receipt"), "utf8")).toContain("version=0.0.10-preview.2\n");
+  }));
+
+  test("the CLI update-pre bootstraps standalone installation without npm or inherited version pins", () => fixture(f => {
+    const cli = join(import.meta.dir, "../src/cli/index.ts");
+    mkdirSync(join(f.home, "opencodex"));
+    mkdirSync(join(f.home, "codex"));
+    const env = { ...f.env, OXC_VERSION: "0.0.9", OPENCODEX_HOME: join(f.home, "opencodex"), CODEX_HOME: join(f.home, "codex") };
+    const invoke = (args: string[]) => spawnSync(process.execPath, [cli, "update-pre", ...args], { env, encoding: "utf8" });
+    const help = invoke(["--help"]);
+    expect(help.status, help.stderr).toBe(0);
+    expect(invoke(["--stable"]).status).toBe(2);
+    expect(readdirSync(f.root)).not.toContain("requests");
+    writeFileSync(join(f.root, "metadata"), JSON.stringify([
+      { tag_name: "0.0.11", draft: false, prerelease: false },
+      { tag_name: "0.0.10-preview.2", draft: false, prerelease: true },
+    ]));
+    const result = invoke(["--no-modify-path"]);
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(f.prefix, "install-receipt"), "utf8")).toContain("version=0.0.10-preview.2\n");
+    expect(readFileSync(join(f.root, "requests"), "utf8")).toContain("raw.githubusercontent.com/ar4ft/opencodex");
+  }));
+
   test("a binary that fails its startup check leaves the current installation intact", () => fixture(f => {
     expect(f.install().status).toBe(0);
     const failedBinary = "#!/bin/sh\nexit 9\n";

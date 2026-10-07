@@ -24,13 +24,15 @@ file to use the commands immediately. `oxc`, `ocx`, and `opencodex` are equivale
 Requires curl and `sha256sum` or `shasum`. The default selects the newest published release,
 including prereleases; macOS signing/notarization is not verified by the installer.
 
-Download the script to use `--version 0.0.9` (bare and `v`-prefixed tags work), `--stable`,
+Download the script to use `--version 0.0.9` (bare and `v`-prefixed tags work), `--stable`, `--prerelease`,
 `--prefix /absolute/path`, or `--no-modify-path`. `OXC_INSTALL_DIR` and `OXC_VERSION` supply
-the default prefix and version. `--stable` refuses prereleases and fails if release classification
+the default prefix and version. `--prerelease` (also used by `ocx update-pre`) skips stable releases
+and fails if the API cannot confirm a published prerelease. `--stable` refuses prereleases and fails if release classification
 is unavailable.
 
 ```sh
 oxc update                     # latest GitHub release from ar4ft/opencodex
+oxc update-pre                 # newest published prerelease only
 oxc update --stable             # production releases only
 oxc update --version 0.0.9      # pin a release
 oxc restart                    # refresh a proxy that was running during the update

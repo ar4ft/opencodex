@@ -1003,6 +1003,16 @@ if it is not running.
 with bounded, read-only provenance inspection. `ocx system codex-cli-update check` does not query a
 package registry or install an update.
 
+### `ocx update-pre [--no-modify-path]`
+
+Install the newest published GitHub prerelease binary from this fork on Linux/macOS, skipping
+stable releases and drafts. Downloads are unsigned; the installer verifies SHA-256 and checks
+startup before replacing the binary. Existing standalone aliases update their owned prefix.
+From npm/source, this command installs standalone aliases under `OXC_INSTALL_DIR` or `~/.oxc`;
+activate them with `. "$HOME/.oxc/env"`. Run `oxc restart` after updating a running proxy.
+
+You can also pass `--prerelease` to the [standalone installer](/getting-started/installation/#standalone-install-this-fork).
+
 ### `ocx update [--tag latest|preview]`
 
 When OpenCodex is installed through mise, this command exits unsuccessfully before stopping the proxy or changing package files and shows `mise upgrade <tool>`, using the verified local mise alias. Update checks remain available and report the installation as externally managed. An unreadable or inconsistent mise ownership record fails closed without guessing a tool name, and `--tag preview` never changes mise's configured selection.

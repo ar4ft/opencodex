@@ -542,7 +542,8 @@
       "documents": [
         "scripts/",
         "src/cli/",
-        "src/lib/"
+        "src/lib/",
+        "src/update/"
       ]
     },
     {

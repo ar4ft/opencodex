@@ -1,5 +1,9 @@
 # Background Service And Sidecars
 
+The fork's `src/update/github-prerelease.ts` bootstraps standalone GitHub prereleases through
+`ocx update-pre`. Binary replacement leaves a running proxy in memory; restart it after updating.
+The installer and prefix contract is described in [GitHub workflows](github-workflows.md).
+
 Native result continuations and function-result injection follow [the mode-specific result and control contract](../transports/streaming-health.md#experimental-native-function-result-injection); this surface does not infer upstream support or alter its defaults.
 
 Native steering follows [the shared WebSocket contract](../transports/streaming-health.md#experimental-native-mid-turn-steering); this surface's defaults remain unchanged.
