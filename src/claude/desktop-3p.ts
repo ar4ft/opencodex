@@ -284,6 +284,18 @@ function collectDesktop3pModels(
   }
 
   if (models[0]) models[0].isFamilyDefault = true;
+  // Profiles written by an earlier process may use date slots even when its
+  // profile was not saved. Recover those deterministic aliases from the same
+  // roster, while keeping the advertised hash IDs backward compatible.
+  if (new Set(candidates.filter(row => row.provider !== "anthropic" || !row.id.startsWith("claude-"))
+    .map(row => `${row.provider}/${row.id}`)).size <= 365) {
+    const recovered = reconcileDesktopProfile(undefined, candidates.map(({ provider, id }) => ({
+      route: `${provider}/${id}`, label: id,
+    })));
+    for (const [route, assignment] of Object.entries(recovered.assignments)) {
+      if (!route.startsWith("anthropic/claude-")) registry.set(assignment.alias, route);
+    }
+  }
   desktop3pAliasesByRoute = new Map(candidates.map(({ provider, id }) => [`${provider}/${id}`, desktop3pAlias(provider, id)]));
   return { models, registry };
 }

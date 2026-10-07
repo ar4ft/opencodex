@@ -622,6 +622,10 @@ async function handleClaudeMessagesWithBudget(
     }
     // Debug capture (opt-in allowlist scalars) BEFORE the passthrough branch so
     // native, routed, and disabled-alias paths are all observable (devlog 130 B1).
+    if (isRec(anthropicBody) && typeof anthropicBody.model === "string") {
+      const { refreshDesktopRequestModel } = await import("../claude/desktop-request-model");
+      await refreshDesktopRequestModel(config, anthropicBody.model);
+    }
     captureClaudeInbound(
       "messages",
       anthropicBody,
@@ -1019,6 +1023,13 @@ export async function handleClaudeCountTokens(
   if (countRoute) {
     model = stripOneMillionMarker(countRoute);
     raw.model = model;
+  }
+  try {
+    const { refreshDesktopRequestModel } = await import("../claude/desktop-request-model");
+    await refreshDesktopRequestModel(config, model);
+  } catch (error) {
+    return anthropicErrorResponse(error instanceof AnthropicRequestError ? 400 : 500,
+      error instanceof Error ? error.message : String(error));
   }
   captureClaudeInbound("count_tokens", raw, resolveInboundModel(model, config.claudeCode), req.headers.get("anthropic-beta") ?? undefined);
   if (wantsNativePassthrough(req, config, requestPolicy, model)) {

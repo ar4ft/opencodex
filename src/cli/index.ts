@@ -598,6 +598,11 @@ function reportRestartFailure(result: Extract<ProxyRestartResult, { ok: false }>
 async function handleProxyRestart(
   startWhenStopped: () => Promise<boolean | "skipped">,
 ): Promise<boolean> {
+  const live = await findLiveProxy();
+  if (live) {
+    try { await (await import("../clients/live-policy")).assertNativeSafeProxyLifecycle(live); }
+    catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; return false; }
+  }
   const deadlineAt = Date.now() + PROXY_RESTART_OBSERVE_MS;
   const result = await runProxyRestart({
     findLive: () => discoverStableProxyForRestart({
@@ -652,6 +657,11 @@ async function restoreSharedClientStateAfterStop(): Promise<boolean> {
 }
 
 async function handleStop() {
+  const liveBeforeStop = await findLiveProxy();
+  if (liveBeforeStop) {
+    try { await (await import("../clients/live-policy")).assertNativeSafeProxyLifecycle(liveBeforeStop); }
+    catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; return false; }
+  }
   let stopFailed = false;
   let stoppedService = false;
   // An ownership mismatch means the service manager was never even contacted: the installed
@@ -743,6 +753,11 @@ async function handleStop() {
 }
 
 async function handleUninstall() {
+  const liveBeforeUninstall = await findLiveProxy();
+  if (liveBeforeUninstall) {
+    try { await (await import("../clients/live-policy")).assertNativeSafeProxyLifecycle(liveBeforeUninstall); }
+    catch (error) { console.error(error instanceof Error ? error.message : String(error)); process.exitCode = 1; return; }
+  }
   const failures: string[] = [];
 
   const runStep = async (label: string, step: () => void | boolean | Promise<void | boolean>) => {
@@ -856,7 +871,7 @@ async function handleStatus() {
     console.log(`   ${line}`);
   }
   if (!(status.json.proxy.pid || status.json.proxy.health.ok)) {
-    console.log("   ↳ Not running — Codex/Claude requests will fail with connection errors.");
+    console.log("   ↳ Not running — clients using the proxy will fail with connection errors.");
     // The service summary a few lines below already tells a registered-but-not-serving
     // user to repair. Printing "install the persistent service" unconditionally
     // contradicted it in the same report, and install re-registers: UAC on Windows and a

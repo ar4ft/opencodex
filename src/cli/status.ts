@@ -13,6 +13,7 @@ import { displayCodexRuntimePath, effortClampAppliesToRuntime, loadLastEffortCla
 import { redactSecretString, redactUserPath } from "../lib/redact";
 import { collectOrcaCodexHomeDiagnostic, type OrcaCodexHomeDiagnostic } from "../codex/home";
 import { grokFenceEndpointDrift, readGrokStatus } from "../grok/status";
+import { NATIVE_CODEX_CLIENT_SUPPORTED } from "../codex/native-client-policy";
 
 type HealthCheck = {
   ok: boolean;
@@ -134,7 +135,7 @@ export function unusedProxyWarningLines(input: {
   proxyUp: boolean;
   routingKind: StartupHealth["routingKind"];
 }): string[] {
-  if (!input.proxyUp || input.routingKind !== "native") return [];
+  if (!NATIVE_CODEX_CLIENT_SUPPORTED || !input.proxyUp || input.routingKind !== "native") return [];
   return [
     "⚠️  Codex routing is native — the running proxy is unused.",
     "   Codex requests go to OpenAI, not this proxy. Re-point with: ocx start",
