@@ -96,3 +96,7 @@ desktop/bun.lock
 # Workspace-local language runtimes and download caches
 .runtimes/
 .runtime-cache/
+
+# Python maintenance test caches
+scripts/__pycache__/
+scripts/tests/__pycache__/

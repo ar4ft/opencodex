@@ -1,4 +1,5 @@
 {
+    "upstream-maintenance.test.ts": "ci-workflows",
     "claude-copilot-model.test.ts": "claude-integration",
     "claude-desktop-request-model.test.ts": "claude-integration",
     "fork-native-client-isolation.test.ts": "codex-integration",

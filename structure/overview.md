@@ -12,6 +12,9 @@ is scoped to canonical ChatGPT Responses forwarding; other source-area behavior 
 
 Shared parsing and streaming follow the [request-copy](transports/byte-accounting.md#request-copy-accounting) and [stream-buffer accounting](transports/byte-accounting.md#stream-buffer-accounting) contracts.
 
+Fork repository maintenance is draft-only and requires current-head human review; its behavior-impact
+report and retained integration boundaries are defined in `UPSTREAM_MAINTENANCE.md`.
+
 ## Product boundary
 
 opencodex is a local proxy for Codex. It does not patch Codex binaries. It changes local Codex

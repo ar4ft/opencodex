@@ -1,6 +1,10 @@
 # Docs And Release
 
-The fork retains only `.github/workflows/tag-release.yml`; the linked automation inventory below belongs to upstream.
+The fork retains `.github/workflows/tag-release.yml` and `.github/workflows/upstream-maintenance.yml`
+for standalone tag releases and draft-only stable-upstream maintenance.
+`UPSTREAM_MAINTENANCE.md` defines behavior warnings, retained fork files, candidate validation and
+current-head human approval. Maintenance never merges or publishes; the linked inventory below
+belongs to upstream.
 
 `src/cli.ts` delegates to the CLI entrypoint packaged by the release tooling.
 
